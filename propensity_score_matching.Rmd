@@ -1,0 +1,86 @@
+---
+title: "Propensity Score Matching"
+date: "3/14/2020"
+output: html_document
+---
+*This post is based on a lecture by Ani Katchova from [**econometricsacademy**](https://www.youtube.com/watch?v=-0HVGe0LKLo)*.
+
+### Treatment Evaluation
+- Treatment evaluation is the estimation of the average effects of a program (or treatment) on the outcome of interest.
+- There are usually two types of studies: One is controlled experiments and the other is observational studies. 
+  - In real life, it is expensive to do a controlled experiment, instead in many cases, we use observational studies. 
+  - In an observational study, treatment group and control group are not randomly decided.
+- Propensity score matching (PSM) can be a good way to overcome the drawbacks of observational studies.
+
+### Propensity Score Matching
+- First, we assign the observations into two groups: treated group and control group.
+  - Treatment $D$* is a binary variable that determines if the observation has the treatment or not. That is, $D=1$ means the obeservation is treated, and $D=0$ is not.
+- Using a logit or probit model, we can estimate the propensity of observations with $D$ as the dependent variable and $x$ as independent variables.
+$$
+p(x) = prob(D=1|x) = \mathbb{E}(D|x)
+$$
+  - The propensity score is the **conditional probability** of receiving treatment given pre-treatment characteristics $x$.
+- Now we match observations from treated and control groups based on their propensity scores.
+  - Nearest neighbor matching
+    - For each treated observation $i$, select a control observation $j$ that has the closest $x$.
+$$
+min\:||p_i-p_j||
+$$
+  - Radius matching
+    - Each treated observation $i$ is matched with control observations $j$ that fall within a specified radius.
+$$
+||p_i-p_j||\:<\:r
+$$
+  - Kernel matching
+    - Each treated observation $i$ is matched with several control observations, with weights inversely proportional to the distance between treated and control observations.
+$$
+w(i,j)=\frac{K(\frac{p_j-p_i}{h})}{\sum_{j=1}^{n_0}K(\frac{p_j-p_i}{h})} \quad \text{where }h\text{ is the bandwidth parameter.}
+$$
+  - Stratification matching
+    - Compare the outcomes within intervals (or blocks) of propensity scores.
+- After matching, we calculate the treatment effects: compare the outcome $y$ between the treated and control observations.
+$$
+y =
+\begin{cases}
+y_1 \quad \text{if} \quad D=1 \\
+y_0 \quad \text{if} \quad D=0
+\end{cases}
+$$
+
+### Treatment Effects
+- Average treatment effect (ATE): The difference between the outcomes of treated and control observations.
+$$
+\Delta = y_1-y_0 \\
+ATE=\mathbb{E}(\Delta)=\mathbb{E}(y_1|x,\:D=1)-\mathbb{E}(y_0|x,\:D=0)
+$$
+  - ATE is fine for random experiments but **in observational studies, it may be biased if treated and control obserrvations are not similar**.
+
+- Average treatment effect on the treated (ATET): The difference between the outcomes of treated and outcomes of the treated observations if they had not been treated.
+$$
+ATET=\mathbb{E}(\Delta|D=1)=\mathbb{E}(y_1|x,\:D=1)-\mathbb{E}(y_0|x,\:D=1)
+$$
+  - However, $\mathbb{E}(y_0|x,\:D=1)$ is not observable (counterfactual), so we need to estimate it.
+  - Using propensity score method, the equation becomes
+$$
+ATET=\mathbb{E}(\Delta|p(x),\,D=1)=\mathbb{E}(y_1|p(x),\,D=1)-\mathbb{E}(y_0|p(x),\,D=1)
+$$
+
+
+### Assumptions
+**Conditional independence assumption**
+- For random experiments, the outcomes are independent of treatment such that $y_0, y_1\,\perp\,D$. However, for observational studies, the outcomes are independent of treatment, conditional on x such that $y_0, y_1\,\perp\,D|x$.
+- We need treatment assignment that ignores the outcomes. That is, the treatment variable needs to be exogenous.
+
+**Unconfoundedness assumption**
+- Conditional independence of the control group outcome and treatment such that $y_0\,\perp\,D|x$.
+- Weaker assumption than the conditional independence assumption.
+  
+**Balancing condition**
+- Assignment to treatment is independent of the x characteristics, given the same propensity score.
+$$
+D \perp x|p(x)
+$$
+ 
+
+
+
