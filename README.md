@@ -1,2 +1,2 @@
 # self-study
-Repo for reviewing basic statistics
+Repo for reviewing basic statistics and practicing LaTex syntax.
