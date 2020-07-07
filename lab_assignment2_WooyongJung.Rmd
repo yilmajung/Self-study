@@ -1,0 +1,197 @@
+---
+title: "Lab Assignment II"
+author: "Wooyong Jung (wj710)"
+date: "2/15/2020"
+output: pdf_document
+---
+
+```{r GSS, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+library(psych)
+library(corrplot)
+library(PerformanceAnalytics)
+library(sjPlot)
+library(sjmisc)
+library(finalfit)
+library(knitr)
+library(labelled)
+library(stargazer)
+library(xtable)
+library(kableExtra)
+library(ggplot2)
+```
+
+## Basic Questions:
+### 1. Download and open stata GSS_lab_2.dta, and finish the following tasks.
+#### 1-1. Describe the dataset concisely, be sure to mention the number of observations, name of variables, and years covered.
+- The dataset includes 64,814 observations for 8 variables: `year`, `id_`, `wrkstat`, `age`, `educ`, `sex`, `polviews`, and `abany`. The varibles `id_`, `wrkstat`, `age`, `educ`, and `sex` cover years from 1972 to 2018, while `polviews` and `abany` cover 1974 to 2018 and 1977 to 2018, respectively. After cleansing the data (mainly transfered the answers "Don't know", "No answer", and "Not applicable" to missing values), the available observations of each variable and the descriptive statistics of continuous variables are as below.
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+gss <- read_dta("Lab_2/GSS_lab_2.dta")
+gss <- gss %>% 
+  mutate(polviews = ifelse(polviews %in% c(8, 9, 0), NA, polviews), 
+         abany = ifelse(abany %in% c(8, 9, 0), NA, abany),
+         wrkstat = ifelse(wrkstat == 9, NA, wrkstat),
+         educ = ifelse(educ %in% c(98, 99), NA, educ),
+         age = ifelse(age %in% c(98, 99), NA, age),
+         sex = ifelse(sex == 2, 0, 1),
+         abany = ifelse(abany == 2, 0, 1))
+desc_stat <- gss %>%
+  gather(features, values, c(year, wrkstat:abany)) %>% 
+  group_by(features) %>% 
+  filter(!is.na(values)) %>%
+  dplyr::summarize(n = n(), mean = mean(values), `std.dev` = sd(values))
+```
+
+```{r table1, results = 'asis', echo = FALSE, message = FALSE, warning = FALSE}
+desc_stat %>% 
+  knitr::kable(caption = "Summary Statistics", digit = 2) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+```
+
+#### 1-2. Pick a variable to be your outcome variable; and at least 2 regressors of your choice, and you should justify your choice. A line of explanation/motivation is enough.
+- I'd like to choose `polviews` as my outcome variable and `year`, `age`, `educ`, `sex`, and `wrkstat` as regressors to see how individuals' age, schooling years, sex and work status are associated with their political views.
+
+#### 1-3. Keep the data if year >= 2010. Provide descriptive statistics for these variables you chose. You can provide summary table, cross-tabs, etc: What can you see from these numbers?
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+gss2 <- gss %>% 
+  select(polviews, year, age, educ, sex, wrkstat) %>%
+  filter(year >= 2010)
+val_labels(gss2) <- list(sex = c(female = 0, male = 1), 
+                         wrkstat = c('working fulltime' = 1, 'working partime' = 2, 'temp not working' = 3, 'umempl, laid off' = 4,
+                                     'retired' = 5, 'school' = 6, 'keeping house' = 7, 'other' = 8))
+
+```
+
+```{r summary statistics, results = 'asis', echo = FALSE, message = FALSE, warning = FALSE}
+desc_stat2 <- gss2 %>%
+  gather(features, values) %>% 
+  group_by(features) %>% 
+  dplyr::summarize(n = n(), mean = mean(values, na.rm = TRUE), `std.dev` = sd(values, na.rm = TRUE))
+
+desc_stat2 %>% 
+  knitr::kable(caption = "Summary Statistics for the Selected Variables since 2010", digit = 2) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+
+table3 <- gss2 %>% 
+  group_by(to_factor(wrkstat)) %>% 
+  filter(!is.na(wrkstat)) %>% 
+  dplyr::summarize(n = n(), mean = mean(polviews, na.rm = TRUE), std.dev = sd(polviews, na.rm = TRUE))
+kable(table3, caption = "Political Views by Work Status since 2010", digits = 2) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+
+table4 <- gss2 %>% 
+  group_by(to_factor(sex)) %>% 
+  filter(!is.na(sex)) %>% 
+  dplyr::summarize(n = n(), mean = mean(polviews, na.rm = TRUE), std.dev = sd(polviews, na.rm = TRUE))
+kable(table4, caption = "Political Views by Sex since 2010", digits = 2) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, fig.align= 'center', fig.height = 3, fig.width = 4}
+gss3 <- gss2 %>% 
+  select(polviews, age, educ)
+chart.Correlation(gss3, histogram = TRUE, pch = 19)
+```
+
+
+- From the descriptive statistics and the correlation matrix, I can see that `polviews` has a positive correlation with `age` and `sex`, that is older and male respondents seem to have more conservative political views compared to younger and female respondents, respectively. Also as the coefficient of correlation between `polviews` and  `educ` is negative, respondents who have longer schooling years showed relatively liberal political orientation. Lastly, respondents who have a full-time job seem to have more conservative orientation than those in part-time job status or no-job status. To see this more in depth, we need to do OLS.
+
+#### 1-4. Run an OLS regression on your variables, and interpret your model, including the coefficients and standard errors.
+
+```{r, results = "asis", echo = FALSE, message = FALSE, warning = FALSE, fig.align= 'center'}
+ gss4 <- gss2 %>% 
+  filter(!is.na(polviews), !is.na(sex), !is.na(wrkstat))
+fit1 <- lm(polviews ~ age + educ + to_factor(sex) + to_factor(wrkstat) + to_factor(year), data = gss4)
+stargazer(fit1, type = 'latex', covariate.labels = c("age", "educ", "sex (male)", "(wrkstat) working partime",
+                                                     "(wrkstat) temp not working", "(wrkstat) umempl, laid off", "(wrkstat) retired",
+                                                     "(wrkstat) school", "(wrkstat) keeping house", "(wrkstat) other",
+                                                     "(GSS year) 2012", "(GSS year) 2014", "(GSS year) 2016", "(GSS year) 2018"),
+          title = "OLS Regression Results")
+```
+
+- As a result of the OLS regression, age has a positive relationship with the political views while the education level has a negative relationship with it. (both variables are sginificant.) Also male tends to have more conservative orientation than female. Regarding the labor force status, people who are working fulltime tend to have the most conservative political views compared to other group of people. The survey years don't have a significant relationship with individual's political views. Lastly, the $R^2$ is about 2.4, and it means that there seems to be many omitted variables to explain individuals' political views.
+
+#### 1-5 Draw a graph to illustrate the underlying relationship you observed in the regression results.
+
+```{r, echo=FALSE, warning = FALSE, fig.align= 'center', fig.height = 3, fig.width = 4}
+gss4 %>% 
+  ggplot(aes(age, polviews)) + 
+  geom_smooth(method = 'lm') +
+  geom_smooth(linetype = "dashed", color = "red", se = FALSE) +
+  theme_bw()
+
+gss4 %>% 
+  ggplot(aes(educ, polviews)) + 
+  geom_smooth(method = 'lm') +
+  geom_smooth(linetype = "dashed", color = "red", se = FALSE) +
+  theme_bw()
+```
+
+- In the two plots above, the blue lines refer to their linear fit, and the red dashed lines are the lowess curve. As seen in the plots, age has a positive relationship with the political views, while education has a negative relationship. Both lowess curve has a concave shape, inserting their squared terms can be considered.
+
+
+### 2. Use the same dataset as in question 1. Finish the following tasks.
+#### 2-1. Pick a binary variable indicating 1 for being extremely liberal or liberal, 0 for extremely conservative or conservative. Tabulate this variable, what proportion do you see?
+- The total number of observations is 4,163 and the conservative is 2,219 (53%) and the liberal 1,944 (47%).
+
+```{r, results = 'asis', echo = FALSE, message = FALSE, warning = FALSE}
+gss5 <- gss2 %>% 
+  mutate(polviews_d = ifelse(polviews %in% c(1,2), 1,
+                             ifelse(polviews %in% c(6,7), 0, NA)))
+gss5 <- gss5 %>% 
+  filter(!is.na(polviews_d))
+
+val_labels(gss5$polviews_d) <- c(conservative = 0, liberal = 1)
+
+stat_polviews <- gss5 %>%
+  filter(!is.na(polviews_d)) %>% 
+  group_by(to_factor(polviews_d)) %>%
+  dplyr::summarize(n = n())
+
+kable(stat_polviews, caption = "Political Views", col.names = c("polviews_d", "n")) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+
+```
+
+#### 2-2. Snapshot save the data, then collapse them to the mean of this binary variable, by sex and year. 
+
+```{r, results = 'asis', echo = FALSE, message = FALSE, warning = FALSE}
+stat_polviews2 <- gss5 %>% 
+  select(polviews_d, sex, year) %>% 
+  group_by(to_factor(sex), to_factor(year)) %>% 
+  dplyr::summarize(mean = mean(polviews_d, na.rm = TRUE))
+
+kable(stat_polviews2, caption = "Average Value of Political Views (0: conservative, 1: liberal) by Sex and Year", col.names = c("sex", "year", "mean"), digit = 3) %>% kable_styling(latex_options = c("striped", "hold_position"), position = "center")
+```
+
+
+#### 2-3. Browse the data, what do you see? Drop the observations with missing value.
+- Through all of the survey years, female respondents tend to have more liberal political views than male. Both female and male have showed that their political views hover around their mean values.
+  
+#### 2-4. Make a plot of yearly trend for the outcome with one line for female and another for male. Refine the graph, save it and describe what you observe.
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, fig.align = 'center', fig.width = 5.5, fig.height = 3} 
+stat_polviews3 <- stat_polviews2
+colnames(stat_polviews3) <- c("sex", "year", "mean")
+stat_polviews3 %>% 
+  ggplot(aes(x = year, y = mean, group = sex, color = sex, linetype = sex)) + geom_line() + geom_point() + theme_bw()
+```
+
+- Female respondents have more liberal political orientation through the all survey years since 2010. The gap between female and male was closest in the survey year 2014, and widest in 2010.  
+
+#### 2-5. Restore the data. Run a logistic mdoel with the outcome on sex, age, age square, education and year dummy. Be sure to drop educ >= 98 and age >= 98. Interpret the model.
+
+#### 2-6. Run the same model as above but with OLS. Interpret the model.
+```{r, results = 'asis', echo = FALSE, message = FALSE, warning = FALSE, fig.align= "center"} 
+logit <- glm(polviews_d ~ factor(sex) + age + I(age^2) + educ + factor(year), data = gss5, family = 'binomial')
+ols <- lm(polviews_d ~ factor(sex) + age + I(age^2) + educ + factor(year), data = gss5)
+stargazer(logit, ols, type = 'latex', title = "Compare Logit and OLS Regression Results", covariate.labels = c("(sex) male", "age", "age(squared)", "education", "(GSS year) 2012", "(GSS year) 2014", "(GSS year) 2016", "(GSS year) 2018"))
+```
+
+- As expected, compared to female, being male has decreased the log odds of being liberal by 0.207, and one unit increase in age also decreased the log odds of being liberal by 0.05. However the decreasing extent diminished as age increased (the squared term of age is positive). One year increase in the schooling years increse log odds of being liberal by 0.108.
+  
+- The significance and the direction of the coefficients of OLS is the same with those of the logistic regressoin. It can be interpreted as that our results of the logit model are robust.
+  
+#### 2-7. Summarize your findings. What can you say about the political polarizations in the US?
+- To diagnose the political polarization in the US more accurately, I think, we need more information (more variables) such as income, occupation, social values, religion etc. Above all, we need a longer timeline to identify the polarization trend. Using the results above, it is hard to say whether political polarization gets worse or not. As seen in the regression results, the survey year has no significant relationship with the political views. However, if we just see each year separately, we can say that individuals' age, sex, and education are important factors which are highly associated with one's political orientation (thus political polarization).
+
+
+

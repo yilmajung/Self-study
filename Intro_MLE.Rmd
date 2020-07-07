@@ -1,0 +1,49 @@
+---
+title: '[Intro] Machine Learning'
+author: "Wooyong Jung (wj710)"
+date: "5/8/2020"
+output: html_document
+---
+*This note is closely following Dr. George Lentzas's lecture slides from his "Machine Learning in Economics" class in Spring 2020.*
+
+### Gentle Introduction to Machine Learning (ML)
+- Many ML techniques aim at estimating $f$ for prediction or inferendce of $Y = f(\mathbf{X}) + \varepsilon$.
+- In the prediction, the acuracy of prediction is $E(Y-\hat{Y})^2$, and it is equal to $(f(\mathbf{X})-\hat{f}(\mathbf{X}))^2+var(\varepsilon)$
+  - The first part is the **reducible** error. A good use of ML techniques will reduce this.
+  - The second part is the **irreducible** error, and arises outside $f$. It will always be an upper bound on the accuracy of our prediction and almost always be unknown in practical applications.
+- Trade-off between model interpretability (usually simple parametric) and flexibility (usually complex parametric or non-parametric).
+  - Simple parametric models are easier to fit but heaveily rely on a model assumption.
+  - Complex parametric or non-parametric models can easily overfit the data and require a large number of observations for an accurate fit.
+- The most common metric used to measure the performance of a ML method is **mean square error (MSE)**, given by $MSE = \frac{1}{n}\displaystyle\sum_{i=1}^n(y_i-\hat{f}(x_i))^2$.
+  - Generally, we want to choose the ML method that produces the lowest **test** MSE.
+  - Minimizing training MSE will not necessarily minimize test MSE. When there is a small training MSE but a large test MSE, we are said to have "**overfitted**" the data.
+- Decomposition of the expected thest MSE for a given value $\mathbf{X}_0$.
+
+$$
+\begin{gathered}
+E(y_0-\hat{f}(\mathbf{X_0}))^2 = var(\hat{f}(\mathbf{X_0})) + (bias(\hat{f}(\mathbf{X_0})))^2 + var(\varepsilon)
+\end{gathered}
+$$
+  
+- Variance captures how $\hat{f}$ would change if it is estimated over different training sets. **The higher the flexibility of the ML method, the higher its variance.**
+- Bias captures the error that arises by approximating the real data generating process by a simpler model. **The more flexibility of the ML method, the lower the bias.**
+- The trade-off between variance and bias creates the U-shape curve of the test MSE.
+  ![Variance-Bias Trade-off](variance_bias.png)
+  *Source: An Introduction to Statistical Learning (ISLR) by James et al.*
+
+  
+### Classification
+#### Error Rates
+- Error rate is the proportion of mistaken classification, and it is calculated by the formula which has the similar idea with that of MSE.
+$$
+\begin{aligned}
+ER_{train} &= \frac{1}{n}\displaystyle\sum_{i=1}^{n}I(y_i = \hat{y}_i) \\
+ER_{test} &= AVE(I(y_0 \neq \hat{y}_0))
+\end{aligned}
+$$
+
+- A good classifier has a small test error rate.
+
+#### The Bayes Classifier
+- One that assigns an observation with input values $\mathbf{X}_0$ to the class $j$ for which the conditional probability of being in a class given the input values is the larges. That is, $Pr(Y = j | X = x_0)$ is the largest. This is called the **Bayes classifier**.
+- The Bayes classifier results in the lowest possible test error rate which is called the **Bayes error rate** (similar to the irreducible error rate).

@@ -1,0 +1,258 @@
+---
+title: "상품공간분석 발표"
+author: "정우용"
+date: "2019년 4월 18일"
+output: 
+        ioslides_presentation:
+            widescreen: true
+---
+
+<style>
+div.footnotes {
+  position: absolute;
+  bottom: 0;
+  margin-bottom: .8px;
+  width: 80%;
+  font-size: 1em;
+}
+</style>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+  $('slide:not(.backdrop):not(.title-slide)').append('<div class=\"footnotes\">');
+
+  $('footnote').each(function(index) {
+    var text  = $(this).html();
+    var fnNum = (index+1).toString();
+    $(this).html(fnNum.sup());
+
+    var footnote   = fnNum + '. ' + text + '<br/>';
+    var oldContent = $(this).parents('slide').children('div.footnotes').html();
+    var newContent = oldContent + footnote;
+    $(this).parents('slide').children('div.footnotes').html(newContent);
+  });
+});
+</script>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+options("kableExtra.html.bsTable" = T)
+```
+
+
+## 상품공간분석이란
+
+**상품공간분석(Product Space Analysis)이란 상품 간 연관성을 정량화하여 <br /> 이를 상품공간지도(Product Space Map)라는 공간에서<br /> 상품 간 네트워크의 형태로 시각화하는 분석 기법**
+
++ Hausmann & Klinger(2007)와 Hidalgo et al.(2007)에서 처음 고안
+
+
+## 상품공간지도 {.flexbox .vcenter}
+```{r out.width = "800px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/psm5.png")
+```
+
+
+## 상품공간분석의 특징
+
+**한 국가의 내재된 생산 역량을 측정하고<br /> 신규 수출로 인해 향상될 수 있는 고도화 정도를 측정 가능**
+
++ 상품 간의 연관성을 측정하려는 기존의 시도들은 투입과 산출 관계, 기술 고도화 수준, 또는 특허인용의 유사성 등 주로 **생산 측면에서의 유사성**을 기준으로 하였다면,
+
++ 상품공간분석은 상품들이 동일한 시장에서 판매되는지, 또는 유사한 기반시설을 필요로 하는지 등 **생산품(products) 자체의 수출 패턴** 을 통해 상품 간 연관성을 찾으려는 시도
+
+**데이터 자체가 미흡하고 부정확할 수 있는 개발도상국의 산업구조를 파악하는데 유리**
+
+## 상품공간분석 이해를 위한 주요 개념
+
+**현시비교우위 (RCA, Revealed Comparative Advantage)**
+
+특정국가 C가 특정상품 i에 대해 **현시비교우위**를 가진다는 것은<br /> 
+이 국가의 수출에서 상품 i가 차지하는 비중이 전 세계 수출에서 i상품이 차지하는 비중보다 크다는 것을 의미
+
+* RCA가 1보다 클 때 비교우위를 가진다고 봄.
+
+* 한국의 반도체에 대한 RCA값 5.26 (2016년 기준)
+
+* $RCA_{c,i} = \frac{\frac{수출_{c,i}}{\sum_{i} 수출_{c,i}}}{\frac{\sum_{c} 수출_{c,i}}{\sum_{i} \sum_{c} 수출_{c,i}}}$
+
+
+
+## 주요 개념(2)
+
+**근접도 (Proximity, $\varphi$)**
+
+**근접도**란 i상품과 j상품 간의 상대적 거리로<br /> 두 상품 i와 j에 대해 전 세계 국가들이 동시에 비교우위를 가지고 있을수록<br /> 근접도는 높아짐.
+
+* 예를 들어, i상품을 비교우위를 갖고 수출하는 국가가 10개국이 있는데,<br /> 이 10개 국가 중 5개 국가가 j상품 또한 비교우위를 가지고 수출하고 있다면<br /> i상품과 j상품 간 근접도는 5/10로  0.5가 됨.
+
+* $\varphi_{i,j} = min\{P(x_{i}|x_{j}), P(x_{j}|x_{i})\}$<br />
+$\begin{align}
+    x_{i,c} &= 1~~~~~\text{if $RCA_{i,c} > 1$,} \\
+    &= 0~~~~~\text{otherwise}
+\end{align}$
+
+
+# 한국의 상품공간지도
+
+##
+```{r out.width = "950px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/kor_1962.png")
+```
+
+
+##
+```{r out.width = "950px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/kor_1990.png")
+```
+
+##
+```{r out.width = "950px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/kor_2016.png")
+```
+
+
+# Distance vs. Complexity
+
+## 주요 개념(3)
+
+**Distance ($d$)**
+
+**Distance**란 한 국가에 누적된 수출역량과 어느 특정상품 간의 거리
+
+* 근접도(Proximity)가 두 상품 간의 연관성을 정량화 한다면,<br /> *Distance*는 특정상품과 한 국가의 수출상품군 전체와의 거리를 측정
+
+* 즉, c국가의 i상품에 대한 *distance*가  1이라면,<br /> c국가가 i상품과 관련된 어떠한 상품도 생산하고 있지 않음을 의미
+
+* $d_{i,c} = \frac{\sum_{i} (1-M_{i',c})\varphi_{i,i'}}{\sum_{i'}\varphi_{i,i'}}$<br />
+$\begin{align}
+    M_{i,c} &= 1, ~~~~~\text{if country $c$ produces product $i$} \\
+    &= 0, ~~~~~\text{otherwise}
+\end{align}$
+
+
+
+## Korea (1962 - 2016)
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/dist_vs_comp_kor.png")
+```
+
+
+# 에티오피아 상품공간분석
+
+## Ethiopia 경제성장 추이 {.flexbox .vcenter}
+```{r out.width = "800px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/ethiopia_growth.png")
+```
+
+
+##
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/eth_2004.png")
+```
+
+##
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/eth_2010.png")
+```
+
+##
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/eth_2016.png")
+```
+
+## Ethiopia (1962 - 2016)
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/dist_vs_comp_eth.png")
+```
+
+## Ethiopia (2016, SITC 4-digit)
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/eth_2016_new2.png")
+```
+
+##
+```{r out.width = "1000px", echo = FALSE, warning = FALSE, message = FALSE}
+knitr::include_graphics("C:/Users/master/Pictures/psa_presentation/eth_eff_1.png")
+```
+
+
+## 상위 유망품목: Distance Level 1  {.smaller}
+```{r echo = FALSE, message = FALSE, warning = FALSE, include = TRUE, comment = NA}
+nodes_cn <- read_csv("ethiopia_final.csv")
+
+table_dl1 <- nodes_cn %>% 
+  select(id, prod, group, technology, rca, distance, dist_level, ef_dum)
+
+table_dl1 <- table_dl1 %>% 
+  filter(dist_level == 1, ef_dum == 1, rca < 1) %>% 
+  arrange(distance) %>% 
+  head(8)
+
+table_dl1 <- table_dl1[,-c(7,8)]
+colnames(table_dl1) <- c("SITC", "Products", "Sector", "Technology Level", "RCA", "Distance")
+table_dl1$RCA <- round(table_dl1$RCA, 3)
+table_dl1$Distance <- round(table_dl1$Distance, 3)
+
+table_dl1 %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed", font_size = 12, full_width = FALSE, position = "center"))
+```
+
+
+## 상위 유망품목: Distance Level 2  {.smaller}
+```{r echo = FALSE, message = FALSE, warning = FALSE, include = TRUE, comment = NA}
+nodes_cn <- read_csv("ethiopia_final.csv")
+
+table_dl2 <- nodes_cn %>% 
+  select(id, prod, group, technology, rca, distance, dist_level, ef_dum)
+
+table_dl2 <- table_dl2 %>% 
+  filter(dist_level == 2, ef_dum == 1, rca < 1) %>% 
+  arrange(distance) %>% 
+  head(8)
+
+table_dl2 <- table_dl2[,-c(7,8)]
+colnames(table_dl2) <- c("SITC", "Products", "Sector", "Technology Level", "RCA", "Distance")
+table_dl2$RCA <- round(table_dl2$RCA, 3)
+table_dl2$Distance <- round(table_dl2$Distance, 3)
+
+table_dl2 %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed", font_size = 12, full_width = FALSE, position = "center"))
+```
+
+
+## 상위 유망품목: Distance Level 3  {.smaller}
+```{r echo = FALSE, message = FALSE, warning = FALSE, include = TRUE, comment = NA}
+nodes_cn <- read_csv("ethiopia_final.csv")
+
+table_dl3 <- nodes_cn %>% 
+  select(id, prod, group, technology, rca, distance, dist_level, ef_dum)
+
+table_dl3 <- table_dl3 %>% 
+  filter(dist_level == 3, ef_dum == 1, rca < 1) %>% 
+  arrange(distance) %>% 
+  head(8)
+
+table_dl3 <- table_dl3[,-c(7,8)]
+colnames(table_dl3) <- c("SITC", "Products", "Sector", "Technology Level", "RCA", "Distance")
+table_dl3$RCA <- round(table_dl3$RCA, 3)
+table_dl3$Distance <- round(table_dl3$Distance, 3)
+
+table_dl3 %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed", font_size = 12, full_width = FALSE, position = "center"))
+```
+
+
+## 참고사이트
+
+* 자료 다운로드: 엠파워
+* 상품공간지도 제작 가이드라인<br />[https://yilmajung.github.io]("http://yilmajung.github.io")
+* 상품공간분석 등장 배경 및 관련문헌<br />[CID 지식채널](https://blog.naver.com/kdi_cid/221475853152)

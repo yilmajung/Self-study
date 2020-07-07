@@ -1,0 +1,38 @@
+---
+title: "Neural Network"
+author: "Wooyong Jung (wj710)"
+date: "5/10/2020"
+output: html_document
+---
+
+## Intro
+#### Example: Binary logistic regression
+$$
+(x, y) \quad x \in \mathbb{R}^{n_x}, y \in \{0,1\} \\
+m \text{ training example:}\: \{(x^{(1)},y^{(1)}), (x^{(2)},y^{(2))}),\dots,(x^{(m)},y^{(m)})\} \\
+y = [y^{(1)}, y^{(2)}, \dots, y^{(m)}] \\
+\text{feature matrix }X \in \mathbb{R}^{n_x\times m} \\
+y \in \mathbb{R}^{1\times m}
+$$
+
+$$
+\text{Given }x, \hat{y} = P(y = 1|x) \\
+x \in \mathbb{R}^{n_x} \\
+\text{Parameters: }w\in\mathbb{R}^{n_x}, b\in\mathbb{R} \\
+\text{Output: }\hat{y}=\sigma(w^Tx+b) \\
+\sigma(z) = \frac{1}{1+e^{-z}} \text{ where } z = w^Tx+b \\
+$$
+$$
+\text{Loss function:} \\
+L(\hat{y}, y) = -(y\log\hat{y} +(1-y)\log (1-\hat{y})) \\
+\text{If } y = 1, L(\hat{y}, y) = -\log\hat{y} \rightarrow \text{want } \log\hat{y} \text{ to be large.} \\
+\rightarrow  \text{want } \hat{y} \text{ to be large.} \\
+\text{If } y = 0, L(\hat{y}, y) = -\log (1-\hat{y})\rightarrow \text{want } \log(1-\hat{y}) \text{ to be large.} \\
+\rightarrow  \text{want } \hat{y} \text{ to be small.} \\
+\\
+\text{Cost function:} \\
+J(w, b) = \frac{1}{m}\displaystyle\sum_{i=1}^{m}L(\hat{y}^{(i)}, y^{(i)}) \\
+=-\frac{1}{m}\displaystyle\sum_{i=1}^{m}[y^{(i)}\log\hat{y}^{(i)} +(1-y^{(i)})\log (1-\hat{y}^{(i)}))
+$$
+
+

@@ -1,0 +1,95 @@
+---
+title: "Lab Assignment 1"
+author: "Wooyong Jung (wj710)"
+date: "2/6/2020"
+output: pdf_document
+---
+
+## Basic questions
+
+### 1. Derive the OLS estimator $\beta_{ols}$, assuming all necessary assumptions held.
+
+$$
+\text{Let} \quad \mathbf{Y}=\mathbf{X}\hat{\mathbf{\beta}} + \mathbf{\hat{u}} \text{.} \\
+\text{Then, the sum of squared residual} \mathbf{(SSR)} = \mathbf{\hat{u}^{\prime}}\mathbf{\hat{u}}
+$$
+
+$$
+\begin{aligned}
+\implies \mathbf{SSR} &= (\mathbf{Y}-\mathbf{X\hat{\beta}})^{\prime}(\mathbf{Y}-\mathbf{X\hat{\beta}})\quad \because \mathbf{\hat{u}} = \mathbf{Y}-\mathbf{X\hat{\beta}} \\
+ &= (\mathbf{Y}^{\prime}-\hat{\beta}^{\prime}\mathbf{X}^{\prime})(\mathbf{Y}-\mathbf{X\hat{\beta}}) \\
+ &= \mathbf{Y}^{\prime}\mathbf{Y} - \mathbf{Y}^{\prime}\mathbf{X}\hat{\beta} - \hat{\beta}^{\prime}\mathbf{X}^{\prime}\mathbf{Y} + \hat{\beta}^{\prime}\mathbf{X}^{\prime}\mathbf{X}\hat{\beta} \\
+\end{aligned}
+$$
+$$
+\begin{aligned}
+& \implies\frac{\partial\mathbf{SSR}}{\partial{\hat{\beta}}} = -2\mathbf{X}^{\prime}\mathbf{Y} + 2\mathbf{X}^{\prime}\mathbf{X}\hat{\beta} = 0 \\
+& \implies \hat{\beta}_{ols} = (\mathbf{X}^{\prime}\mathbf{X})^{-1}(\mathbf{X}^{\prime}\mathbf{Y})
+\end{aligned}
+$$
+
+### 2. Review how odds ratios can be transformed to probabilities, and vice versa.
+
+Let $P_1$ and $P_2$ is probabilities of event 1 and 2, respectively. Then, their odds ratios is,$\frac{\frac{P_1}{1-P_1}}{\frac{P_2}{1-P_2}}$.
+
+
+### 3. Briefly describe a research question that interests you, including the dependent, independent variables if possible.
+
+My research question is that how social trust affects the relationship between income inequality and economic growth. I would like to see whether social trust has a moderating effect when income inequality impedes economic growth of a country. To this end, I'm going to use the growth rates of GDP per capita as a dependent variable and income inequality level, social trust level as key independent variables. 
+
+
+## Bonus question
+
+```{r GSS, echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=7}
+library(tidyverse)
+library(haven)
+library(dvmisc)
+library(ggplot2)
+library(plyr)
+library(RColorBrewer)
+
+gss <- read_csv("gss.csv")
+gss3 <- gss %>% 
+  dplyr::select(year, age, homosex, polviews, gen_coh) %>% 
+  dplyr::filter(!is.na(gen_coh), !(is.na(age)), age != 99)
+
+gss3 <- gss3 %>% 
+  dplyr::mutate(homosex = ifelse(homosex == 1, 4,
+                          ifelse(homosex == 2, 3,
+                                 ifelse(homosex == 3, 2,
+                                        ifelse(homosex == 4, 1, NA)))))
+
+sum_gss3 <- ddply(gss3, c("gen_coh", "age"), summarise,
+                  mean_homo = mean(homosex, na.rm = TRUE),
+                  sd = sd(homosex, na.rm = TRUE))
+
+Blues2 <- c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#08519C", "#08306B")
+sum_gss3$gen_coh <- factor(sum_gss3$gen_coh, levels = c("Lost Generation", 
+                                                        "Greatest Generation", 
+                                                        "Silent Generation",
+                                                        "Baby Boomers",
+                                                        "Generation X",
+                                                        "Millenials",
+                                                        "Generation Z"),
+                           labels = c("Lost Generation (born 1883-1900)", 
+                                                                 "Greatest Generation (born 1901-1927)", 
+                                                                 "Silent Generation (born 1928-1945)",
+                                                                 "Baby Boomers (born 1946-1964)",
+                                                                 "Generation X (born 1965-1981)",
+                                                                 "Millenials (born 1982-1994)",
+                                                                 "Generation Z (born 1995-2000)")) 
+
+sum_gss3 %>%
+  ggplot(aes(age, mean_homo, color = gen_coh)) +
+  geom_point(aes(shape = gen_coh)) +
+  geom_line(aes(group = gen_coh, linetype = gen_coh)) +
+  theme_bw() +
+  scale_color_manual(values = Blues2) +
+  labs(x = "Age", y = "Average Response by Generation on Homosexual Sex Relations") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  scale_shape_manual(values = 0:8) +
+  theme(legend.position = c(0.8, 0.16), legend.key.size = unit(1, 'lines'), legend.title = element_blank())
+
+```
+
+In this plot, I wanted to see that how people change their thoughts about homosexual relationship by cohort. As expected, the younger generations are more willing to accetp homosexuality when they get into the same age to the older generation. 

@@ -1,0 +1,43 @@
+---
+title: "Covariance and Covariance Matrix"
+author: "Wooyong Jung (wj710)"
+date: "2/23/2020"
+output: html_document
+---
+
+#### Covariance
+- Covariance is one of a family of statistical measures used to analyze the linear relationship between two variables.
+  - A positive value of covariance indicates an increasing linear relationship.
+  - A negative value indicates decreasing linear relationship.
+  $\rightarrow$ **Covariance doesn't say anything about the strength of the relationship, but the direction.** Correlation measures both the strength and direction of the linear relationship.
+- The difference between covariance and variance
+  - Variance measures the variation of a single random variable
+  - The formula for variance is
+  
+$$
+\sigma^2_x = \frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar{x})^2
+$$
+  where n is the number of samples and $\bar{x}$ is the mean of the random variable $x$(represented as a vector).
+  
+  - Covariance measures how much two random variables vary together.
+  - The covariance $\sigma(x,y)$ of two random variables $x$ and $y$ is
+$$
+\sigma(x,y) = \frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar{x})(y_i-\bar{y})
+$$
+  with n is the number of samples. The variance $\sigma_x^2$ of a random variable can be expresses as $\sigma(x,x)$, the covariance with itself.
+  
+#### Covariance Matrix
+- The diagonal of a covariance matrix provides the variance of each individual variable; covariance with itself. 
+- The off-diagonal entries in the matrix provide the covariance between each variable pair.  
+- Covariance matrix is a square matrix given by $C_{i,j}=\sigma(x_i, x_j)$ where $C \in \mathbb{R}^{d \times d}$ and $d$ describes the dimension or number of random variables of the data (i.e. the number of features).
+- The calculation for the covariance matrix can be expressed as
+ 
+$$
+C=\frac{1}{n-1}\sum_{i=1}^{n}(X_i-\bar{X})(X_i-\bar{X})^T
+$$
+  where $X \in \mathbb{R}^{n \times d}$. Follwing from this equation, the cavariance matrix can be computed for a data set  with zero mean with $C = \frac{XX^T}{n-1}$ by using the semi-definite matrix $XX^T$.
+- In a more easy-to-understand way, covariance matrix is to define the relationship in the entire dimensions as the relationships between every two random variables. 
+
+
+#### Application of Covariance Matrix
+

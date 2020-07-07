@@ -1,0 +1,542 @@
+---
+title: "Lab Assignment 3"
+author: "Wooyong Jung (wj710)"
+date: "3/12/2020"
+output: pdf_document
+---
+
+## Question 1. Analytical problems
+
+### (a) Derive OLS variance estimator for $\beta_{ols}$, assume all necessary assumptions held and the error term $\varepsilon_i \sim N(0,\sigma^2)$ and i.i.d.
+$$
+\begin{aligned}
+\hat{\beta}_{ols} &= (\mathbf{X}^{\prime}\mathbf{X})^{-1}\mathbf{X}^{\prime}y \\
+Var(\hat{\beta}_{ols}) &= (\mathbf{X}^{\prime}\mathbf{X})^{-1}\mathbf{X}^{\prime}Var(y)\mathbf{X}(\mathbf{X}^{\prime}\mathbf{X})^{-1} 
+\quad (\because Var(\mathbf{A}y) = \mathbf{A}Var(y)\mathbf{A}^\prime) \\
+&= Var(y)(\mathbf{X}^{\prime}\mathbf{X})^{-1}\mathbf{X}^{\prime}\mathbf{X}(\mathbf{X}^{\prime}\mathbf{X})^{-1} \\
+&= \sigma^2(\mathbf{X}^{\prime}\mathbf{X})^{-1} 
+\end{aligned}
+$$
+
+### (b) What could be an effective way of reducing the variance for your estimator?
+$\rightarrow$ From the equation $Var(\hat{\beta}_{ols}) = \sigma^2(\mathbf{X}^{\prime}\mathbf{X})^{-1}$, we know that either decreasing $\sigma^2$ or increasing $(\mathbf{X}^{\prime}\mathbf{X})^{-1}$ can reduce the variance of our estimate. Thus, we can think of two effective and easy ways to reduce the variance: First, adding more controls to decrease $\sigma^2$, and second, increasing the variance of our independent variables.
+
+### (c) If you know the measurement for your variable of interest X is susceptible to a non-differentiable error term $\varepsilon_i \sim N(0,1)$, what influence does this have on your interpretation of the regression estimates?
+$\rightarrow$ In this case, the regression estimates might be either over-estimated or under-estimated. 
+
+
+### (d) Explain the Conditional Independence Assumption (CIA) for using the propensity score matching method.
+$\rightarrow$ For random experiments, the outcomes are independent of treatment such that $y_0, y_1\,\perp\,D$. However, for observational studies, the outcomes are independent of treatment, conditional on x such that $y_0, y_1\,\perp\,D|x$. We need treatment assignment that ignores the outcomes. That is, the treatment variable needs to be exogenous. In order to secure this, the CIA is needed.
+
+### (e) Explain the Parallel Line Assumption (PLA) for using the ordered logit regression model.
+$\rightarrow$ The PLA indicates that in the ordered logit regression model all the gaps between the odds of being a lowest category against being all other higher categories and the odds of being second-lowest category against all the other higher categories are the same.
+
+## Question 2. Empirical Analysis
+### A. Creating the Dataset
+
+```{r, echo=F, message=F, warning=F}
+library(tidyverse)
+library(haven)
+library(ipumsr)
+library(stargazer)
+library(plm)
+library(RColorBrewer)
+library(knitr)
+```
+
+### (c) Verify you have the correct version of the dataset. Below is what I have, and your dataset should match if done correctly.
+```{r, message=F, warning=F}
+# Load data
+ddi <- read_ipums_ddi("usa_00002.xml")
+data <- read_ipums_micro(ddi)
+data <- data %>% 
+  filter(STATEFIP %in% c(4,6,8,12,20,23,26,27,32,36,39))
+
+# Check the dimension of the dataset
+data.frame(dim(data), row.names = c("obs", "vars"))
+```
+
+
+### B. Data Cleaning
+
+
+```{r, message=F, warning=F}
+# Duplicate a new dataset and recode according to the instruction
+data_new <- data %>% 
+  mutate(MARST = ifelse(MARST %in% c(1,2), 1, 0),
+         RACE = cut(RACE, c(-Inf,1,2,6,9), c(1:4)),
+         HISPAN = ifelse(HISPAN >= 1, 1, 0),
+         HCOVANY = ifelse(HCOVANY == 1, 0, 1),
+         EMPSTAT = ifelse(EMPSTAT == 1, 1, 
+                              ifelse(EMPSTAT == 2, 0,
+                                     ifelse(EMPSTAT %in% c(0, 3), 2, NA))),
+         MIGRATE1 = ifelse(MIGRATE1 == 1, 0,
+                              ifelse(MIGRATE1 >= 2, 1, NA)),
+         TRANWORK = ifelse(TRANWORK %in% c(10, 20, 35), 0,
+                               ifelse(TRANWORK %in% c(31:34, 36), 1,
+                                      ifelse(TRANWORK %in% c(40, 50, 60, 70), 2, NA))),
+         SEX = ifelse(SEX == 1, 1, 0),
+         NFAMS = cut(NFAMS, c(-Inf,1,2,Inf), c(1:3)),
+         SSMC = ifelse(SSMC == 0, 0,
+                           ifelse(SSMC %in% c(1, 2), 1, NA)),
+         POVERTY = ifelse(POVERTY == 0, NA, POVERTY))
+```
+
+### (b) Use a single paragraph to describe the dataset, do not provide a screenshot of the describe command, but rather think of this as a chance for your to concisely describe in words the dataset you have to your reader. Be sure to mention the name, year coverage, variables available, sampling method, observations, etc. (You will always have to do this in any research paper you write)
+
+$\rightarrow$ This U.S census micro-dataset has 8,596,583 observations from 47 different cities in 11 U.S states from 2012 to 2018. The total number of variables is 29 including personal basic information such as sex, age, race, citizenship, income etc. and individuals' social status like poverty , migration, and employment status. In terms of the characteristics of variables, there are only six continuous variables (population-weighted density, number of families, age, education, personal income, travel time to work), and others are all categorical.
+
+### (c) Investigate and explain why the employment status variable (the original one) has more than a million “N/A”. (Hint: think about the age requirement for work, and probably state law variations)
+$\rightarrow$ By taking a look at the cross-table between age and employment status, we can see that every "N/A" value comes from individuals aged under 15. Thus, it seems reasonable to combine the "N/A"s into "Not in labor force" for simplicity.
+
+
+## C. Data analysis
+### Theme 1. Health insurance in the US
+```{r, message=F, warning=F}
+# Remove observations aged under 18
+data_new <- data_new %>% 
+  filter(AGE >= 18)
+```
+
+### (a) What are the predicting factors for having a health insurance in the US? Run an OLS regression on health insurance status. Include all the relevant variables in their proper forms (continuous or categorical), ignore any weight variables and city, county indicator, citizenship for now.
+```{r, message=F, warning=F}
+# OLS regression
+m1 <- lm(HCOVANY ~ factor(YEAR) + factor(SSMC) + factor(NFAMS) + factor(SEX) + AGE + factor(MARST) + factor(RACE) + factor(HISPAN) + EDUC + POVERTY + INCTOT + factor(TRANWORK) + TRANTIME + factor(STATEFIP), data = data_new)
+summary(m1)
+```
+$\rightarrow$ According to the OLS result, almost every variable (number of family members, sex, age, marital status, race, education, poverty, total income, means of transportation to work, and travel time to work) showed significant association with the health insurance coverage. Age, marital status, education, and poverty status have positive relationships with the insurance coverage. That is, if an individual is older, more educated, or more far from the poverty threshold, she or he is more likely to have any health insurance coverage.
+
+
+### (b) Now add county (as indicated by the country fips code) fixed effects to your model in (a). Is there a change in degree of freedom? Why? (hint: it’s easiest to use the “areg” command, type “help areg” to find out)
+?lfe
+```{r, message=F, warning=F}
+# Generate a new dataset by selecting key variables
+data_new2 <- data_new %>% 
+  select(HCOVANY, YEAR, SSMC, NFAMS, SEX, AGE, MARST, RACE, HISPAN, EDUC, POVERTY, INCTOT, TRANWORK, TRANTIME, STATEFIP, COUNTYFIP)
+
+# Fix-effect regression model
+m2 <- plm(HCOVANY ~ factor(YEAR) + factor(SSMC) + factor(NFAMS) + factor(SEX) + AGE + factor(MARST) + factor(RACE) + factor(HISPAN) + EDUC + POVERTY + INCTOT + factor(TRANWORK) + TRANTIME + factor(STATEFIP), data = data_new2, model = "within", index = "COUNTYFIP", na.action = na.exclude)
+summary(m2)
+```
+
+$\rightarrow$ By adding 72 county fixed effects, the degree of freedom decreased by 71 (72-1). Because now this fixed effect model controls the county-specific heterogeneity, it lost the degree of freedom by the number of county minus one.
+
+
+### (c) Save your predicted outcome from (b) and separate by state, plot the predicted probability of having insurance for NY, CA, FL across years of 2012 – 2018. Interpret what you observe.
+```{r, message=F, warning=F}
+# Withdraw fitted values
+pdata <- m2$model
+pdata$fitted <- pdata[,1] - m2$residuals
+colnames(pdata) <- c("HCOVANY", "YEAR", "SSMC", "NFAMS", "SEX", "AGE", "MARST",
+                     "RACE", "HISPAN", "EDUC", "POVERTY", "INCTOT", "TRANWORK",
+                     "TRANTIME", "STATEFIP", "fitted")
+
+# Subdataset for only three states
+pdata2 <- pdata %>% 
+  filter(STATEFIP %in% c(6, 12, 36)) %>% 
+  group_by(STATEFIP, YEAR) %>% 
+  summarise(mean_fitted = mean(fitted, na.rm = T))
+
+# Reorder state
+pdata2$STATEFIP <- factor(pdata2$STATEFIP, levels = c(36, 6, 12))
+
+# Draw a plot 
+pdata2 %>% 
+  ggplot(aes(x = YEAR, y = mean_fitted, group = STATEFIP, linetype = STATEFIP,
+             color = STATEFIP)) +
+  geom_line() +
+  theme_bw() +
+  ylab("Predicted probability of having insurance") + xlab(NULL) +
+  scale_linetype_discrete(name=NULL, labels = c("NY", "CA", "FL")) +
+  scale_color_discrete(name=NULL, labels = c("NY", "CA", "FL")) +
+  theme(legend.position = c(0.8, 0.2))
+
+```
+
+
+### (d) Now several states want to pass laws to add a working requirement for residents to receive government funded health insurance. From the Census data, which state do you think might be impacted the most if the law was to pass? (Hint: which state has the highest proportion of residents having insurance but unemployed and poor)
+
+```{r, message=F, warning=F}
+# Calculate the number of observations of each state in 2018
+n_state <- data_new %>% 
+  filter(YEAR == 2018) %>% 
+  group_by(as_factor(STATEFIP)) %>% 
+  summarise(total_obs = n())
+
+# Calculate the number of individual who has health insurance but is unemployed and
+# under the poverty threshold in 2018
+newlaw_state <- data_new %>% 
+  filter(YEAR == 2018, HCOVANY == 1, EMPSTAT == 0, POVERTY < 100) %>% 
+  group_by(as_factor(STATEFIP)) %>% 
+  summarise(obs_poor = n())
+
+# Merge two numbers
+newlaw <- merge(newlaw_state, n_state, by = "as_factor(STATEFIP)", all = TRUE)
+
+# Calculate the proportion
+newlaw %>% 
+  mutate(obs_poor/total_obs*100) %>% 
+  rename(proportion = `obs_poor/total_obs * 100`) %>% 
+  arrange(desc(proportion))
+
+```
+$\rightarrow$ Nevada will be affected the most by the new law. The proportion of individuals in Nevada who have health insurance but are unemployed and under the poverty threshold is the highest (0.72%) among 11 states.
+
+
+### Theme 2. Marital status and same-sex marriage in the US
+
+### (e) Use table or tabulate, show which state has the most same-sex couple in terms of percentage? Which has the least?
+```{r, message=F, warning=F}
+# Calculate the number of observations of each state across year
+n_state <- data_new %>% 
+  group_by(YEAR, STATEFIP) %>% 
+  summarise(total_obs = n())
+
+# Calculate the number of same-sex couple of each state across year
+n_ssc_state <- data_new %>% 
+  filter(SSMC == 1) %>% 
+  group_by(YEAR, STATEFIP) %>% 
+  summarise(ssc_obs = n())
+
+# Merge two stats and calculate the proportion
+ssc <- merge(n_state, n_ssc_state, by = c("YEAR", "STATEFIP"), all.y = TRUE)
+ssc <- ssc %>% 
+  mutate(prop_ssc = ssc_obs/total_obs*100)
+
+# Reorder the states by the proportion
+ssc$STATEFIP <- factor(ssc$STATEFIP, levels = c(6, 23, 12, 32, 8, 36, 4, 27, 26, 39, 20))
+
+# Draw a plot
+n_cols <- 11
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(n_cols)
+ssc %>% 
+  ggplot(aes(x = factor(YEAR), y = prop_ssc, group = factor(STATEFIP), 
+             color = factor(STATEFIP), linetype = factor(STATEFIP))) +
+  geom_line() +
+  theme_bw() +
+  xlab(NULL) + ylab("Proportion of same-sex couple (%)") +
+  scale_color_manual(values = mycolors, name=NULL, 
+                     labels = c("California", "Maine", "Florida", "Nevada", "Colorado",
+                                "New York", "Arizona", "Minnesota", "Michigan", "Ohio",
+                                "Kansas")) +
+  scale_linetype_discrete(name=NULL,
+                          labels = c("California", "Maine", "Florida", "Nevada",
+                                     "Colorado", "New York", "Arizona", "Minnesota",
+                                     "Michigan", "Ohio", "Kansas"))
+
+# Table
+ssc %>% 
+  group_by(STATEFIP) %>% 
+  summarise(mean_prop = mean(prop_ssc)) %>% 
+  arrange(desc(mean_prop))
+```
+
+$\rightarrow$ From 2013 to 2018, in terms of the overall mean of the proportion of same-sex couple, California placed the top position (0.64%) followed by Maine (0.57%), Florida (0.53%), New York (0.52%), and Nevada (0.52%). As shown in the plot, in every state, the proportions have increased since 2013. Most of all, in Florida the proportion has increased more than two times since 2013.
+
+
+### (f) Compare the age, income, race of the most and least state from question (e).
+```{r, message=F, warning=F}
+# Compare age and income of California and Kansas
+data_new %>%
+  filter(STATEFIP %in% c(6, 20)) %>% 
+  group_by(as_factor(STATEFIP)) %>% 
+  summarise(mean_age = mean(AGE, na.rm = T), mean_income = mean(INCTOT, na.rm = T))
+
+# Compare age and income of California and Kansas
+data_new$RACE <- as.numeric(data_new$RACE)
+data_new <- data_new %>% 
+  mutate(RACE = labelled(RACE, c(White = 1, Black = 2, Asian = 3, Other = 4)))
+data_new %>% 
+  filter(STATEFIP %in% c(6, 20)) %>% 
+  group_by(as_factor(STATEFIP), as_factor(RACE)) %>% 
+  summarise(n = n()) %>% 
+  mutate(total = sum(n), proportion = n/total*100)
+```
+$\rightarrow$ In this dataset (2012-2018), the average ages of California and Kansas are about 47.97 and 50.22, respectively. The average income is \$43,723 in California, and \$36,962 in Kansas. Regarding the proportion of race, white populations account for 63.66% and 89.41% in California and Kansas, respectively. In california the Asian population (16.74%) placed the second rank, while the black population (4.06%) the second rank in Kansas.
+
+
+### (g) What might be some factors that affect where these same-sex couple live? (hint: cultural/political/religious tolerance/self-selections?)
+$\rightarrow$ There might be various deciding factors which the same-sex couples consider when they decide where to live. In this dataset, I guess that `STATEFIP`, `AGE`, and `EDUC` might be included in those factors. Same-sex couples might prefer states which allow the same-sex relationship in law. Moreover, because younger generations tend to have a more open mind on same-sex relationship, `AGE` might have a negative relationship with `SSMC`
+
+### (h) Run a Probit model predicting the factors of being a same-sex couple. Interpret your model. (Use the same regressors as in theme 1)
+```{r, message=F, warning=F}
+# Probit regression
+m3 <- glm(SSMC ~ factor(YEAR) + factor(HCOVANY) + factor(NFAMS) + factor(SEX) +
+            AGE + factor(MARST) + factor(RACE) + factor(HISPAN) + EDUC + 
+            POVERTY + INCTOT + factor(TRANWORK) + TRANTIME + factor(STATEFIP),
+          family = binomial(link = 'probit'), data = data_new2, na.action = na.exclude)
+summary(m3)
+```
+$\rightarrow$ `YEAR` is a critical factor for the probability of being same-sex couple. Since 2013, the proportion of the same-sex couple has constantly inceased. Also women have more possibility to have the same-sex relationship than men, and more educated than less educated, the rich than the poor. California, Florida, and Nevada showed significantly more probability of having the same-sex couples than Arizona (reference state), while Colorado, Kansas, Michigan, Minnesota, and Ohio showed significantly less probability.
+
+
+### (i) Save your predicted probabilities from question (h), draw a plot where Y-axis is the probability and X-axis is the year, and across the different states.
+
+```{r, message=F, warning=F}
+
+# Withdraw the fitted value
+probit_result <- m3$model
+probit_result$fitted <- m3$fitted.values
+
+# Rename the columns
+probit_result <- probit_result %>% 
+  select(`factor(YEAR)`, `factor(STATEFIP)`, fitted) %>% 
+  rename(YEAR = `factor(YEAR)`, STATEFIP = `factor(STATEFIP)`, fitted = fitted)
+
+# Labeled each state
+probit_result$STATEFIP <- as.numeric(as.character(probit_result$STATEFIP))
+probit_result <- probit_result %>%
+  mutate(STATEFIP = labelled(STATEFIP, c(California = 6, Maine = 23, `New York` = 36,
+                                         Florida = 12, Nevada = 32, Colorado = 8,
+                                         Arizona = 4, Minnesota = 27, Ohio = 39,
+                                         Michigan = 26, Kansas = 20)))
+
+# Reorder the result by state
+probit_result <- probit_result %>% 
+  mutate(STATEFIP2 = as_factor(STATEFIP)) 
+
+probit_result$STATEFIP2 <- factor(probit_result$STATEFIP2, 
+                                  levels = c("California", "Maine", "New York", "Florida", 
+                                             "Nevada", "Colorado", "Arizona", "Minnesota",
+                                             "Ohio", "Michigan", "Kansas"))
+
+# Summarise the fitted value by state and year
+probit_result <- probit_result %>% 
+  group_by(STATEFIP2, YEAR) %>% 
+  summarise(mean_fitted = mean(fitted, na.rm = TRUE)) %>% 
+  ungroup()
+
+# Draw a plot 
+n_cols <- 11
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(n_cols)
+probit_result %>% 
+  ggplot(aes(x = YEAR, y = mean_fitted, group = STATEFIP2, color = STATEFIP2,
+             linetype = STATEFIP2)) +
+  geom_line() +
+  labs(x = NULL, y = "Fitted value") +
+  scale_color_manual(values = mycolors, name=NULL) +
+  scale_linetype_discrete(name=NULL) +
+  theme_bw()
+
+```
+
+
+### (j) Repeat (h) and (i) but this time the outcome is the marital status. Report your findings and compare to those in the previous question.
+```{r, message=F, warning=F}
+# Probit regression
+m4 <- glm(MARST ~ factor(YEAR) + factor(HCOVANY) + factor(NFAMS) + factor(SEX) +
+            AGE + factor(SSMC) + factor(RACE) + factor(HISPAN) + EDUC + 
+            POVERTY + INCTOT + factor(TRANWORK) + TRANTIME + factor(STATEFIP), 
+          family = binomial(link = 'probit'), data = data_new2, na.action = na.exclude)
+summary(m4)
+```
+$\rightarrow$ Men tend to get more married than women, and the older has more probability to get married than the younger. Compared to white population, black people have smaller probablity to get married, while Asians have more probability than white population. `EDUC` and `POVERTY` also showed a positive relationship with the marital status. That is, more educated and richer tend to have larger probability to get married. 
+
+
+```{r, message=F, warning=F}
+# Withdraw the fitted value
+probit_result2 <- m4$model
+probit_result2$fitted <- m4$fitted.values
+
+# Rename the columns
+probit_result2 <- probit_result2 %>% 
+  select(`factor(YEAR)`, `factor(STATEFIP)`, fitted) %>% 
+  rename(YEAR = `factor(YEAR)`, STATEFIP = `factor(STATEFIP)`, fitted = fitted)
+
+# Labeled each state
+probit_result2$STATEFIP <- as.numeric(as.character(probit_result2$STATEFIP))
+probit_result2 <- probit_result2 %>%
+  mutate(STATEFIP = labelled(STATEFIP, c(California = 6, Maine = 23, `New York` = 36,
+                                         Florida = 12, Nevada = 32, Colorado = 8,
+                                         Arizona = 4, Minnesota = 27, Ohio = 39,
+                                         Michigan = 26, Kansas = 20)))
+
+# Summarise the fitted value by state and year
+probit_result2 <- probit_result2 %>% 
+  group_by(as_factor(STATEFIP), YEAR) %>% 
+  summarise(mean_fitted = mean(fitted, na.rm = TRUE)) %>% 
+  ungroup()
+
+# Reorder the result by state
+temp <- probit_result2 %>% 
+  filter(YEAR == 2018) %>% 
+  arrange(desc(mean_fitted))
+order <- temp$`as_factor(STATEFIP)`
+
+probit_result2 <- probit_result2 %>% 
+  rename(STATEFIP = `as_factor(STATEFIP)`) 
+class(probit_result2$STATEFIP)
+probit_result2$STATEFIP <- factor(probit_result2$STATEFIP, levels = order)
+
+# Draw a plot 
+probit_result2 %>% 
+  ggplot(aes(x = YEAR, y = mean_fitted, group = as_factor(STATEFIP),
+             color = as_factor(STATEFIP),
+             linetype = as_factor(STATEFIP))) +
+  geom_line() +
+  labs(x = NULL, y = "Fitted value") +
+  scale_color_manual(values = mycolors, name=NULL) +
+  scale_linetype_discrete(name=NULL) +
+  theme_bw()
+```
+
+## (k) Preserve your data first, and then collapse income into years and state, draw a yearly trend of income across each state. What do you observe?
+
+
+```{r, message=F, warning=F}
+# Summariㅋe income trend by year and state
+income_trend <- data_new2 %>% 
+  select(YEAR, STATEFIP2, INCTOT) %>% 
+  group_by(YEAR, STATEFIP2) %>%
+  summarise(mean_inc = mean(INCTOT, na.rm = TRUE))
+
+# Reorder the average income by size
+temp2 <- income_trend %>% 
+  filter(YEAR == 2018) %>% 
+  arrange(desc(mean_inc))
+order2 <- temp2$STATEFIP2
+income_trend$STATEFIP2 <- factor(income_trend$STATEFIP2, levels = order2)
+
+# Draw a plot
+head(income_trend)
+income_trend %>% 
+  ggplot(aes(x=YEAR, y=mean_inc, group=STATEFIP2 , color = STATEFIP2,
+             linetype = STATEFIP2)) +
+  geom_line() +
+  labs(x = NULL, y = "Average Income") +
+  scale_color_manual(values = mycolors, name=NULL) +
+  scale_linetype_discrete(name=NULL) +
+  theme_bw()
+```
+
+$\rightarrow$ Every state showed a increasing trend of average total income. Colorado has the highest average total income among the 11 states, followed by California, New York, and Minnesota. The average income in Maine is the lowest.
+
+
+### (l) The election year is 2012 and 2016. Did you observe any fluctuations around these two time points?
+$\rightarrow$ No. I cannot find any fluctuations around 2012 and 2016.
+
+
+### (m) Restore your data. Which state has the highest rate of residents moving out? What about before and after 2016?
+```{r, message=F, warning=F}
+# Generate migration dataset
+data_migration <- data_new %>% 
+  group_by(YEAR, as_factor(STATEFIP)) %>% 
+  count(MIGRATE1) %>% 
+  spread(key = MIGRATE1, n) %>% 
+  ungroup()
+
+# Calculate moving-out rate
+data_migration <- data_migration %>% 
+  mutate(mig_prop = (`1` / (`0` + `1`)) * 100)
+
+# Create Year2016 dummy
+data_migration <- data_migration %>% 
+  mutate(b2016 = ifelse(YEAR <= 2016, 1, 0))
+data_migration$b2016 <- as.factor(data_migration$b2016)
+
+# Before 2016
+data_migration %>% 
+  filter(b2016 == 1) %>% 
+  group_by(`as_factor(STATEFIP)`) %>% 
+  summarise(mean_mig = mean(mig_prop, na.rm = TRUE)) %>% 
+  arrange(desc(mean_mig))
+
+# After 2016
+data_migration %>% 
+  filter(b2016 == 0) %>% 
+  group_by(`as_factor(STATEFIP)`) %>% 
+  summarise(mean_mig = mean(mig_prop, na.rm = TRUE)) %>% 
+  arrange(desc(mean_mig))
+
+```
+$\rightarrow$ Before 2016, Nevada recorded the highest moving-out rate, and after 2016 Colorado is the highest.
+
+
+### (n) Economy is subject to a delayed effect from policies while people also anticipate and strategize their behaviors in expectance of incoming policy changes. Create a variable that is the lagged income of previous year for each year on the county level, i.e., starting from year 2013, each county in 2013 has a column of last year’s mean personal income. (hint: “ bysort county year: egen mean_income = mean (income variable)”, then to construct the lag, you will have to work with “[_n]”)
+
+```{r}
+# Generate a new dataset including st_county which combine 
+# STATEFIP and COUNTYFIP (because COUNTYFIP is not unique.)
+lagged_inc <- data_new %>% 
+  select(YEAR, STATEFIP, COUNTYFIP, INCTOT) %>% 
+  mutate(st_county = paste(STATEFIP, COUNTYFIP, sep = "_")) %>% 
+  group_by(YEAR, st_county) %>% 
+  summarise(mean_inc = mean(INCTOT, na.rm = TRUE))
+
+# Generate a lagged variable
+lagged_inc <- lagged_inc %>%
+  group_by(st_county) %>% 
+  arrange(YEAR) %>% 
+  mutate(lag_mean_inc = dplyr::lag(mean_inc, 1)) %>% 
+  arrange(st_county, YEAR)
+
+# Display top 15 rows
+head(lagged_inc, 15)
+```
+
+
+### (o) Create a variable that is the difference in mean income between the current year and last year for each year. This variable is called the lagged difference in income.
+```{r, message=F, warning=F}
+# Generate a new variable 
+# (difference in average income between current and previous year)
+lagged_inc <- lagged_inc %>% 
+  mutate(lag_diff_inc = mean_inc - lag_mean_inc)
+
+# Display top 15 rows
+head(lagged_inc, 15)
+```
+
+
+### (p) Regress the moving status on the variable you created in (m) and (n) respectively. What do you observe?
+```{r, message=F, warning=F}
+# Generate new dataset for combining variables from (m) and (n)
+data_new3 <- data_new %>% 
+  mutate(st_county = paste(STATEFIP, COUNTYFIP, sep = "_"))
+data_migration2 <- data_migration %>% 
+  select(YEAR, `as_factor(STATEFIP)`, mig_prop)
+colnames(data_migration2)[2] <- "STATEFIP2"
+data_new3 <- data_new3 %>% 
+  mutate(STATEFIP2 = as_factor(STATEFIP))
+
+# Merging datasets
+data_new3 <- merge(data_new3, lagged_inc, 
+                   by = c("YEAR", "st_county"), all.x = TRUE)
+data_new3 <- merge(data_new3, data_migration2, 
+                   by = c("YEAR", "STATEFIP2"), all.x = TRUE)
+
+# Regression
+m5 <- glm(MIGRATE1 ~ mig_prop, family = binomial(link='logit'), data = data_new3)
+m6 <- glm(MIGRATE1 ~ lag_mean_inc, family = binomial(link='logit'), data = data_new3)
+summary(m5)
+summary(m6)
+```
+$\rightarrow$ I'm sorry, but I don't think I correctly understood this question. I made a variable `mig_prop` in (m), which indicates the proportion of moving population in previous year at the state level, and `lag_mean_inc` in (n) which is the lagged average income at the county level. Here I applied logit models regressing `MIGRATE1` on `mig_prop` and `lag_mean_inc`, respectively. Because `mig_prop` is calculated from `MIGRATE1`, they showed highly positive relationship. Regarding the average income, it doesn't show any significant relationship with migration status. That is, the income in previous year is not highly associated with individual's migration status. 
+
+
+### (q) Is it a good idea to add state or country fixed effects to the models in (o)? Explain your answer either way.
+```{r, message=F, warning=F}
+# Fixed-effect regression
+m6 <- plm(MIGRATE1 ~ lag_mean_inc, data = data_new3, model = "within",
+          index = "st_county", na.action = na.exclude)
+summary(m6)
+```
+
+$\rightarrow$ Yes, adding fixed effect to the model is a good idea. As shown in the model (m6), now the lagged average income shows significantly negative relationship with individual's migration status. That is, individuals whose income in previous year is low tend to less move. With the county fixed effect term, the county-specific characteristics are controled, so I can see more clearly the within-county effect of average income on the migration status.
+
+
+### (r) Finally, run a final model of moving status against the variable you created in (o) along with other controls. (hint: if you notice variables being omitted, just exclude them)
+```{r, message=F, warning=F}
+# Generate 2016 year dummy
+data_new3 <- data_new3 %>% 
+  mutate(dum_2016 = ifelse(YEAR <= 2016, 0, 1))
+
+# County fixed effect regression  
+m7 <- plm(MIGRATE1 ~ lag_mean_inc + lag_diff_inc + TRANTIME + AGE + 
+            factor(MARST) + factor(CITIZEN) + EDUC + factor(EMPSTAT) + 
+            factor(dum_2016), data = data_new3, model = "within", 
+          index = "st_county", na.action = na.exclude)
+summary(m7)
+```
+
+(s) A reporter from NPR asked for your opinion on the status of migration for economic incentives after Trump being elected. What would you say if you can only say 4 sentences?
+$\rightarrow$ As shown in the regression model (m7), the difference in county's total average income between two consecutive years showed a negative relationship with the migration status. That is, as the increasing extent of income is larger, the probability of being moved in the past year is smaller. Thus I would like to say that it is not so likely that the migration is not helpful to increase income.

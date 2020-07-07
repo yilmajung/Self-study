@@ -1,0 +1,77 @@
+---
+title: "Lab Assignment 4"
+author: "Wooyong Jung (wj710)"
+date: "4/25/2020"
+output: pdf_document
+---
+
+## 1. Theoretical questions
+
+### a. Describe what Missing at Random (MAR) and Missing at Completely Random (MCAR) is?
+
+- **MAR**: If a data point is missing at random (MAR), it means that the missing value has no relationship with any missing values but it might have some relationship with the observed values.
+- **MCAR**: If some data points are missing completely at random (MCAR), it means that the missing values have no relationship at all with any observed or missing data values in the dataset.
+
+
+### b. Describe when list-wise deletion (complete case analysis) can be troublesome and how?
+
+- If incomplete cases that are dropped from the analysis have missing values not at completely random, then list-wise deletion can be troublesome. Because the dropped case might have some information about the data and different with the completed cases, we are very likely to get a biased sample and biased results.
+
+
+### c. When analyzing panel data, what is the major assumption difference between Random and Fixed effects model? Discuss different situations where you would prefer each one and why.
+- The major assumption difference between Random and Fixed effects model is the correlation between the structural error (or unit-specific error) and our predictors. Using a fixed effect model, we assume that the correlation is zero, while the correlation is not zero in a random effect model.
+
+
+## 2. Analytical Questions
+
+### d. If you are tasked to analyze the treatment effect of an RCT that follows a panel data structure, which of the methods we learned so far would you choose and why? What assumptions do you need for you to unbiasedly estimate the ATE?
+- If I am tasked to analyze the treament effect of an RCT using a panel dataset, I'm going to use the difference-in-difference (DID) method. Although the treatment group is selected based on RCT, there is always unobserved biase between our treatment and control groups due to any time trends or permanent differences. DID can effectively remove these differences between two groups. In order to apply DID, I need two assumptions in addition to the stable unit treatment value assumption (SUTVA). First, treatment is unrelated to outcome at baseline (RCT settles this). Second, treatment and control groups have parallel trends in outcome. The parallel trend assumption requires that without the treatment, the difference between the two groups is consistent over time. 
+
+
+### e.  In a month or so, you would need to turn in the final draft of your research project for this class. Now take this as a chance to practice, write down your main estimation equation, and explain each part of this equation.
+
+- My research topic is to identify a moderating effect of social trust on the negative relationship between income inequality and economic growth. To this end, I designed two-staged models. In the first stage, using a multilevel model, I'm going to calculate the radius of trust of each country. In the second stage, using a fixed effect panel model, I'm going to investigate the moderating effect of social trust. The preliminary version of the two models are as below.
+
+
+***1st Stage***
+$$
+\begin{aligned}
+\text{1st level:}\quad &TRUST_{ic} = \beta_{0c} + \beta_{1c}OUTGROUP_ic + \beta_{2c}INGROUP_ic + \varepsilon_{ic} \\
+\text{2st level:}\quad &\beta_{0c} = b_0 + \zeta_{0c} \\
+&\beta_{1c} = b_1 + \zeta_{1c} \\
+&\beta_{2c} = b_2 + \zeta_{2c} \\
+\end{aligned}
+$$
+
+$$
+\begin{gathered}
+\zeta_{0c} \sim N(0, \sigma^2_{\zeta_0}), \zeta_{1c} \sim N(0, \sigma^2_{\zeta_1}), \zeta_{2c} \sim N(0, \sigma^2_{\zeta_2}) \text{, and } \varepsilon_{ic} \sim N(0, \sigma^2_{\varepsilon})
+\end{gathered}
+$$
+
+- where c is each country and i is an individual in each country. `TRUST` is measured by asking WVS interviewees whether they agree with the statement “most people can be trusted.” `OUTGROUP` refers to individual's outgroup trust which is trust on people they meet for the first time, people of another religion, and people of another nationality. `INGROUP` refers to individual's trust on family, neighborhood, and people they know personally. $\zeta_{0c}$ is a country-level random intercepts, and $\zeta_{1c}$ and $\zeta_{2c}$ are country-level random slopes applied to `OUTGROUP` and `INGROUP`, respectively. The radius of trust can be calculated simply by substracting the coefficient of `INGROUP` from that of `OUTGROUP`.
+
+
+
+***2nd Stage***
+$$
+\begin{gathered}
+GROWTH_{ct} = u_c + \gamma_1INEQUALITY_{ct} + \gamma_2TRUST_{ct} + \gamma3(INEQUALITY*TRUST) + \mathbf{X}\mathbf{\delta_{\text{control}}} + \varepsilon_{ct}
+\end{gathered}
+$$
+
+- where the response variable is the economic growth (`GROWTH`) of each country c at time t, and income inequality and social trust are explanatory variables. The radius of trust and the level of trust (average value of generalized trust in each country) will be alternately input as a measure of `TRUST` in the model. To investigate the moderating effect of income inequality and social trust, their interaction term is included. $\mathbf{\delta}$ is a vector of control variables and $\varepsilon$ is an error term.
+
+
+## f. Following the previous question, describe your research question in one sentence. What assumptions do you need for your to estimate this question with the equation in e?
+- As mentioned above, my research question is to identify a moderating effect of social trust on the negative relationship between income inequality and economic growth. In both Stage 1 and 2, I basically need all the assumption that are needed in the OLS model such as linearity, constant error variance, independent error terms, normal errors, no multi-collinearity, and exogeneity. However, in Stage 1, I need to loosen up the assumption that random slopes and random intercept are independent of each other. In Stage 2, in order to use the fixed effect model, I need to assume that individual-specific heteroskedasticity is not related to other predictors.
+
+
+## g. Use (at most) two sentences to describe your sample. Use a paragraph (short) to evaluate your project’s external validity (generalizibility).
+- In this study, I combined various dataset from different data sources such as WVS, Penn World Table, World Income Inequality Database (WIID), World Economic Outlook Database, Worldwide Governance Indicators (WGI), etc, and aggregated all the data at country level. Without any imputation, I got total 24 countries data (complete cases only), and two time periods (2006-2010 and 2010-2014). Regarding external validity, because my sample includes various levels of countries in terms of economic growth and geographical location, I expect that the result can be generalized to all other countries. However, my biggest concern is that I have only two different time periods to use a panel analysis. I'm not sure if I can get a meaningful result from this data.
+
+
+## h. Data visualization is a great way to describe your research. I highly encourage you to include one in your project, either for presenting your most important results or illustrate a descriptive stats for motivation (e.g., yearly trend). Include your graph and interpret it if you have one; describe your plan to create one or the reason for not to, if you don’t have one.
+
+- Unfortunately, I have yet to make one, but I have a plan. I'm going to spread every country onto the plot where x-axis is income inequality and y-axis is economic growth. I expect there's a negative relationship. And then, I will use different colors indicating country's trust level (both trust radious and trust strength). What I expect is the slope of group of countries which have higher trust level is less steep than the other group.
+
