@@ -1,0 +1,689 @@
+---
+title: "MLM Final Project Part 1"
+date:  "`r format(Sys.time(), '%B %d %Y')`"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+###Load libraries
+if(!requireNamespace("here"))
+  install.packages("here", repos = "https://cloud.r-project.org")
+require("here")
+
+if(!requireNamespace("ggplot2"))
+  install.packages("ggplot2", repos = "https://cloud.r-project.org")
+require("ggplot2")
+
+if(!requireNamespace("lme4"))
+  install.packages("lme4", repos = "https://cloud.r-project.org")
+require("lme4")
+
+if(!requireNamespace("lmerTest"))
+  install.packages("lmerTest", repos = "https://cloud.r-project.org")
+require("lmerTest")
+
+if(!requireNamespace("car"))
+  install.packages("car", repos = "https://cloud.r-project.org")
+require("car")
+```
+
+## Team Members and division of work: 
+Beverlin del Rosario(scripter), Jinal Shah(coder), and John Zhang(analyst), Wooyong Jung(scripter), Yingtian Liang(coder)
+
+## Question 0.
+### Load classroom.csv and create MATH1ST (fit all models using REML)
+```{r, message=FALSE, warning=FALSE, results='hide'}
+# Read in data
+library(tidyverse)
+dat <- read_csv("dataset/classroom.csv")
+# Create math1st
+dat <- dat %>%
+  mutate(math1st = mathkind + mathgain)
+```  
+
+## Question 1.
+### Estimate UMM model with random intercepts for both schools and classrooms. 
+```{r}
+# Fit UMM(fit1) and print summary
+fit1 <- lmer(math1st ~ (1|schoolid/classid), data = dat)
+summary(fit1)
+```
+
+### a. Report the ICC for schools and classrooms:
+```{r}
+# ICC for schools
+280.69 / (85.47 + 280.69 + 1146.79)
+# ICC for classrooms
+85.47 / (85.47 + 280.69 + 1146.79)
+```  
+
+  Response: 
+    ICC for schools: 0.186, ICC for classrooms: 0.056
+      
+### b. Write out the model:
+      
+  Model 1 Equation:
+$$
+\begin{gathered}
+MATH1ST_{ijk}=b_0+\zeta_{0k}+\eta_{0jk}+\varepsilon_{ijk} \\
+  \text{with } \zeta_{0k}\sim N(0,\sigma^2_{\zeta_0}),\: 
+              \eta_{0jk}\sim N(0,\sigma^2_{\eta_0}) \text{ and } 
+              \varepsilon_{ijk}\sim N(0,\sigma^2_\varepsilon) \text{, independently of each other,} \\
+  \text{where }i, j\text{, and } k \text{ represent students, classrooms, and schools, respectively.}
+\end{gathered}
+$$
+
+## Question 2.
+### Add all school-level predictors:
+
+```{r}
+# Fit model(fit2) adding all school level predictors and print summary 
+fit2 <- lmer(math1st ~ housepov + (1|schoolid/classid), data=dat)
+summary(fit2)
+```
+
+### a. Report if the additional predictors are justified:
+
+```{r}
+# Wald test for fit2 
+linearHypothesis(fit2,"housepov")
+```
+  
+  Response: Based on the Wald test results, the school level predictors as block has the p value <0.05. Therefore the addition of the `HOUSEPOV` is justified. 
+
+
+### b. Report the change to school variance:
+
+  Response: The variance of \(\zeta\)~0~ decreased from 280.69 to 250.93 by adding the school-level predictor `HOUSEPOV`.
+
+
+## Question 3: Add all class-level predictors
+
+```{r}
+# Fit model(fit3) adding all class-level predictors to fit2 and print summary
+fit3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep 
+             + (1|schoolid/classid), data=dat)
+summary(fit3)
+```
+
+### a. Report if adding the predictors is justified:
+
+```{r}
+# Wald test for fit3
+linearHypothesis(fit3,c("yearstea","mathknow","mathprep"))
+```
+
+  Response: Based on the Wald test results, the classroom-level predictors as a block has the p-value 0.3233 (> 0.05). Therefore, the addition of the `YEARSTEA`, `MATHKNOW`, and `MATHPREP`  as a block is not justified.
+
+
+### b. Report changes in class-level variance and individual variance:
+
+  Response: The class-level variance $\sigma^2_{\eta_0}$ slightly increases from  82.36 to 94.36 by adding the classroom-level predictor. The individual variance, $\sigma^2_{\varepsilon}$ decreases from 1146.96  to 1136.43.
+
+
+### c. Give a potential reason to explain why individual variance but not class variance is reduced:
+
+  Response: Some classrooms can be bigger in size compared to other. Because of the small number of sample size for some classrooms, the variances of the some classrooms are large and thus potentially it might not explain the classroom level variance well. 
+
+
+## Question 4.
+### Add all student-level predictors excepting mathgain and mathkind:
+
+```{r}
+# Fit model(fit4) adding all student-level predictors and print summary to fit3
+fit4 <- lmer(math1st ~ sex + minority + ses + yearstea + mathknow 
+             + mathprep + housepov + (1|schoolid/classid), data=dat)
+summary(fit4)
+```
+
+### a. Report if the block of predictors is justified:
+
+```{r}
+# Wald test for fit4
+linearHypothesis(fit4,c("sex","minority","ses"))
+```
+
+  Response: Based on the Wald test results, the student-level predictors as a block has the p-value less than 0.05. Therefore, the addition of the `SEX`, `MINORITY`, `SES` is justified statistically as a block of predictors.
+
+
+### b. Report change in all variance components
+
+  Response: All three levels of variance decreased. The school-level variance $\sigma^2_{\zeta_0}$ decreased from 223.31 to 169.45. The class-level variance $\sigma^2_{\eta_0}$ slightly decreased from 94.36 to 93.89. The individual-level variance $\sigma^2_{\varepsilon}$ decreased from 1136.43 to 1064.96.
+
+
+### c. Give a potential reason as to why the school variance drops from the last model:
+
+Response: 
+
+The individual-level predictors explain part of individual variance, and also bring a compositional effect aggregated up to the school-level. Since some individual level characteristics are similar within school compared to between school, by adding those individual level predictors, the model is better explaining school level variance and thus it goes down.
+
+
+### d. Write this model out:
+
+  Model 4 Equation: 
+$$
+\begin{gathered}
+MATH1ST_{ijk}=b_0+b_1HOUSEPOV_k+b_2YEARSTEA_{jk}+b_3MATHKNOW_{jk}+b_4MATHPREP_{jk} \\ +b_5SEX_{ijk}+b_6MINORITY_{ijk}+b_7SES_{ijk}+\zeta_{0k}+\eta_{0jk}+\varepsilon_{ijk} \\
+  \text{with }\zeta_{0k}\sim N(0,\sigma^2_{\zeta_0}), 
+            \eta_{0jk}\sim N(0,\sigma^2_{\eta_0}) \text{, and } 
+            \varepsilon_{ijk}\sim N(0,\sigma^2_\varepsilon) \text{, independently of each other,} \\
+  \text{where }i, j\text{, and } k \text{ represent students, classrooms, and schools, respectively.}
+\end{gathered}
+$$
+
+## Question 5.
+
+### a. Try to add a random slope for each teacher level predictor (varying at the school level; one by one separately - not all together)
+
+```{r}
+# Fit model(fit5.a1) adding a random slope for 'yearstea' (varying at the school level)
+fit5.a1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (yearstea||schoolid) + (1|schoolid:classid), data = dat)
+# Print summary 
+summary(fit5.a1)
+```
+
+```{r}
+# Fit model(fit5.a2) adding a random slope for 'mathknow' (varying at the school level)
+fit5.a2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (mathknow||schoolid) + (1|schoolid:classid), data = dat)
+# Print summary
+summary(fit5.a2)
+```
+
+```{r}
+# Fit model(fit5.a3) adding a random slope for 'mathprep' (varying at the school level)
+fit5.a3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (mathprep||schoolid) + (1|schoolid:classid), data = dat)
+# Print summary
+summary(fit5.a3)
+```
+
+### b. Report the models and their fit.
+
+```{r}
+# LR test for fit5.a1
+anova(fit4, fit5.a1, refit=F)
+```
+
+  Response: The p-value is 0.93 (>0.05) from the LR test for the model(***fit5.a1***) with a random slope of `YEARSTEA`, which suggests that adding random slope of `YEARSTEA` is statistically not significant/justified.
+  
+
+```{r}
+# LR test for fit5.a2
+anova(fit4, fit5.a2, refit=F)
+```
+  
+  Response: The p-value is 1 (>0.05) from the LR test for the model(***fit5.a2***) with a random slope of `MATHKNOW`, which suggests that adding random slope of `MATHKNOW` is statistically not significant/justified. Furthermore, this model "failed to converge."
+
+```{r}
+# LR test for fit5.a3
+anova(fit4, fit5.a3, refit=F)
+```
+  
+  Response: The p-value is 1 (>0.05) from the LR test for the model(***fit5.a3***) with a random slope of `MATHPREP`, which suggests that adding random slope of `MATHPREP` is statistically not significant/justified. Furthermore, this model "failed to converge."
+
+
+### c. Why is it a bad idea to include a random slope on the housepov effect?
+
+  Response: Because `HOUSEPOV` is a school-level variable which is the highest level in this dataset, it doesn't vary across school. We need at least two different data points to have a slope.
+
+### d. Retry the above models, allowing the slopes to be correlated with the random intercepts (still one by one):
+
+```{r}
+# Fit model(fit5.d1) adding a random slope for 'yearstea' (correlated with random intercepts) 
+fit5.d1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep +
+                  sex + minority + ses + (yearstea|schoolid) + (1|schoolid:classid), data = dat)
+# Print summary
+summary(fit5.d1)
+```
+
+```{r}
+# Fit model(fit5.d2) adding a random slope for 'mathknow' (correlated with random intercepts) 
+fit5.d2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep +
+                  sex + minority + ses + (mathknow|schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit5.d2)
+```
+
+```{r}
+# Fit model(fit5.d3) adding a random slope for 'mathprep' (correlated with random intercepts) 
+fit5.d3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep +
+                  sex + minority + ses + (mathprep|schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+  summary(fit5.d3)
+```
+
+```{r}
+# LR test for fit5.d1, fit5.d2, and fit5.d3, respectively with fit4
+anova(fit4, fit5.d1, refit=F)[8]
+anova(fit4, fit5.d2, refit=F)[8]
+anova(fit4, fit5.d3, refit=F)[8]
+```
+
+  Response: 
+  - Based on the LR tests, the p values are 0.054, 1, and 0.09 for the models with a random slope of `YEARSTEA`, `MATHKNOW`, and `MATHPREP`, respectively, allowing correlation between the random slope and the random intercepts. Therefore, adding each of them as a random slope which is correlated with rnadom intercept is not statistically significant. Furthermore, the model (fit5.d3) with random slope for "MATHPREP" failed to converge.
+
+
+### e. Report anything unusual about the variance components (changes that are in a direction you didn’t expect) and any potential explanation for why those changes occured (hint: what did you add to the model?).
+```{r}
+# Compare variances of fit5.a1 and fit5.d1 (YEARSTEA)
+#summary(fit5.d1)
+rbind(data.frame(VarCorr(fit5.a1)), "-----", data.frame(VarCorr(fit5.d1)))
+
+# Compare variances of fit5.a2 and fit5.d2 (MATHKNOW)
+#summary(fit5.d2)
+rbind(data.frame(VarCorr(fit5.a2)), "-----", data.frame(VarCorr(fit5.d2)))
+
+# Compare variances of fit5.a3 and fit5.d3 (MATHPREP)
+rbind(data.frame(VarCorr(fit5.a3)), "-----", data.frame(VarCorr(fit5.d3)))
+```
+
+  Response: Observing the correlation between random intercept and slope approaching 1 for mathknow and mathprep is unusal. When there is a negative correlation between the random slope and the random intercept of a variable (e.g. `YEARSTEA` and `MATHPREP`), we observed a relatively huge increase in the school-level variance and decrease in classroom level variance by allowing correlation between the random slope and random intercepts. This implies that corelation between slope and intercept is influencing variance structure. That is, when we didn't allow the correlation, $Var(\zeta_{0k}+YEARSTEA\zeta_{1k})$ is equal to $Var(\zeta_{0k})+YEARSTEA^2Var(\zeta_{1k})$; however, when there is a correlation allowed, it becomes $Var(\zeta_{0k})+YEARSTEA^2Var(\zeta_{1k})+2YEARSTEA \cdot Cov(\zeta_{0k},\zeta_{1k})$. Thus, the variances changed depending on the variable and the covariance between the random slope and the random intercept.
+
+## Question 6.
+
+### a. Try to add a random slope for each student level predictor (varying at the classroom level; one by one - not all together)
+
+```{r}
+# Fit model(fit6.a1) adding a random slope for 'sex' (varying at the classrrom level) 
+fit6.a1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (sex||schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.a1)
+```
+
+```{r}
+# Fit model(fit6.a2) adding a random slope for 'minority' (varying at the classrrom level) 
+fit6.a2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (minority||schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.a2)
+```
+
+```{r}
+# Fit model(fit6.a1) adding a random slope for 'ses' (varying at the classrrom level) 
+fit6.a3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (ses||schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.a3)
+```
+
+```{r}
+# LR test for fit6.a1, fit6.a2, and fit6.a3, respectively with fit4
+anova(fit4, fit6.a1, refit=F)[8]
+anova(fit4, fit6.a2, refit=F)[8]
+anova(fit4, fit6.a3, refit=F)[8]
+```
+
+  Response: 
+  - Based on the LR tests, the p values are 1, 1, and 0.21 for the models with a random slope of `SEX`, `MINORITY`, and `SES`, respectively (independent of the random intercepts). Therefore, adding each of them as a random slope is not statistically significant and not needed.
+
+
+### b. Why is it a bad idea to include a classroom-level variable with random slopes at the classroom level?
+
+  Response: Because a classroom-level variable doesn't vary across class, we cannot get random slopes at the classroom level. At least we need two data points to have a slope. A random slope is needed while the coefficient of the predictors cannot fully explain the variance, since a different level would also brings different effects on the outcome variable, e.g. schools have different beta of ses in equation: $MATHKIND_{ijk} = (b_7 + \eta_{1jk}+ \zeta_{1k})SES_{ijk} + \eta_{0jk} + \zeta_{0k} + \varepsilon_{0ijk}$. Random slope is supposed to have a different level than the predictor variable. Hence, it is a bad idea to include a classroom-level variable with random slopes at the classroom level.
+
+
+### c. Retry the above, allowing the slopes to be correlated with the random intercepts. Report findings.
+
+```{r}
+# Fit model(fit6.c1) adding a random slope for 'sex' (correlated with the random intercepts) 
+fit6.c1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (sex|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.c1)
+```
+
+
+```{r}
+# Fit model(fit6.c2) adding a random slope for 'minority' (correlated with the random intercepts) 
+fit6.c2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (minority|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.c2)
+```
+
+
+```{r}
+# Fit model(fit6.c3) adding a random slope for 'ses' (correlated with the random intercepts) 
+fit6.c3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (1|schoolid) + (ses|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit6.c3)
+```
+
+```{r}
+# LR test for fit6.c1, fit6.c2, and fit6.c3, respectively with fit4
+anova(fit4, fit6.c1, refit=F)[8]
+anova(fit4, fit6.c2, refit=F)[8]
+anova(fit4, fit6.c3, refit=F)[8]
+```
+
+  Response: Based on the LR tests, the p values are 0.78, 0.20, and 1 for the models with a random slope of `SEX`, `MINORITY`, and `SES`, respectively, and allowing correlation with the random intercepts. Therefore, adding each of them as a random slope is not significant and not needed. Furthermore, the model (***fit6.c3***) failed to converge.
+
+
+```{r}
+# Compare variances of fit6.a1 and fit6.c1 (SEX)
+rbind(data.frame(VarCorr(fit6.a1)), "-----", data.frame(VarCorr(fit6.c1)))
+
+# Compare variances of fit6.a2 and fit6.c2 (MINORITY)
+rbind(data.frame(VarCorr(fit6.a2)), "-----", data.frame(VarCorr(fit6.c2)))
+
+# Compare variances of fit6.a3 and fit6.c3 (SES)
+rbind(data.frame(VarCorr(fit6.a3)), "-----", data.frame(VarCorr(fit6.c3)))
+```
+
+  Response: When we allowed correlation between the random slope and random intercept, we observed variance changes. It can be also explained by the reason described in the Q5. That is, the variance change occured because a term, $2SEX \cdot Cov(\zeta_{0k},\zeta_{1k})$, was added to the original variance when we allowed the correlation. Because the model fit6.c3 () failed to converge, we couldn't get any values of correlation and variances.
+
+
+## Question 7.
+
+### a. Try to add a random slope for each student level predictor varying at the school level:
+
+```{r}
+# Fit model(fit7.a1) adding a random slope for 'sex' (varying at the school level) 
+fit7.a1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (sex||schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.a1)
+```
+
+
+```{r}
+# Fit model(fit7.a2) adding a random slope for 'minority' (varying at the school level) 
+fit7.a2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (minority||schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.a2)
+```
+
+```{r}
+# Fit model(fit7.a3) adding a random slope for 'ses' (varying at the school level) 
+fit7.a3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (ses||schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.a3)
+```
+
+```{r}
+# LR test for fit7.a1, fit7.a2, and fit7.a3, respectively with fit4
+anova(fit4, fit7.a1, refit=F)[8]
+anova(fit4, fit7.a2, refit=F)[8]
+anova(fit4, fit7.a3, refit=F)[8]
+```
+Response: Based on the LR tests, the p values are 0.43, 1, and 0.03 for the models with a random slope of `SEX`, `MINORITY`, and `SES`, respectively, varying at the school level (independent of the random intercepts). Therefore, adding the random slope for `SES` is needed, while others not.
+
+
+### b. Retry the above, allowing the slopes to be correlated with the random intercepts.
+
+```{r}
+# Fit model(fit7.b1) adding a random slope for 'sex' 
+## Allowing correlation with the random intercepts
+fit7.b1 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (sex|schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.b1)
+```
+
+```{r}
+# Fit model(fit7.b2) adding a random slope for 'minority'
+## Allowing correlation with the random intercepts
+fit7.b2 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (minority|schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.b2)
+```
+
+```{r}
+# Fit model(fit7.b3) adding a random slope for 'ses'
+## Allowing correlation with the random intercepts
+fit7.b3 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + 
+                  sex + minority + ses + (ses|schoolid) + (1|schoolid:classid), data = dat)
+
+# Print summary
+summary(fit7.b3)
+```
+
+```{r}
+# LR test for fit7.b1, fit7.b2, and fit7.b3, respectively with fit4
+anova(fit4, fit7.b1, refit=F)[8]
+anova(fit4, fit7.b2, refit=F)[8]
+anova(fit4, fit7.b3, refit=F)[8]
+```
+
+  Response: Based on the LR tests, the p values are 0.39, 0.003, and 0.08 for the models with a random slope of `SEX`, `MINORITY`, and `SES`, respectively, varying at the school level and allowing correlation between the random slope and the random intercepts. Therefore, adding the random slope for `MINORITY` is needed, while others not.
+
+### c. Report anything unusual about the variance components (changes that are unexpected)
+```{r}
+# Compare variances of fit7.a1 and fit7.b1 (SEX)
+rbind(data.frame(VarCorr(fit7.a1)), "-----", data.frame(VarCorr(fit7.b1)))
+
+# Compare variances of fit7.a2 and fit7.b2 (MINORITY)
+rbind(data.frame(VarCorr(fit7.a2)), "-----", data.frame(VarCorr(fit7.b2)))
+
+# Compare variances of fit7.a3 and fit7.b3 (SES)
+rbind(data.frame(VarCorr(fit7.a3)), "-----", data.frame(VarCorr(fit7.b3)))
+```
+
+  Response: When there is a negative correlation between intercept and slope (i.e. `SEX` and `MINORITY`), the variance of school-level random effects (both slope and intercept) increase dramatically. However the increase is much smaller when the correlation is positive (i.e. `SES`). The variance change occured because a term, $2SEX \cdot Cov(\zeta_{0k},\zeta_{1k})$ or $2MINORITY \cdot Cov(\zeta_{0k},\zeta_{1k})$, was added to the original variance when we allowed the correlation.
+
+
+## Question 8.
+
+### a. Take the two predictors that had significant random slopes, in the forms in which they worked (indep. or correlated) and add both to the model, and test for need of one conditional on needing the other.
+
+```{r}
+# Fit model (fit8) with random slopes for 'SES' and 'MINORITY' (from fit7.a3 and fit7.b2)
+## The random slope for 'SES' is independent of random intercepts
+## The random slope for 'MINORITY' is correlated with random intercepts
+fit8 <- lmer(math1st ~ housepov + yearstea + mathknow + mathprep + sex + minority + ses +
+               (0+ses|schoolid) + (1+minority|schoolid) +  
+               (1|classid), data = dat)
+
+# Print summary
+summary(fit8)
+```
+
+```{r}
+# LR test for fit4 and fit8
+anova(fit4, fit8, refit=F)
+
+# LR test for fit7.a3 and fit8
+anova(fit7.a3, fit8, refit=F)
+
+# LR test for fit7.b2 and fit8
+anova(fit7.b2, fit8, refit=F)
+```
+
+  Response: The LR test result suggests, conditional on minority varying at school level with correlated intercept, we still need the  ses varying at school level. Similarly, conditional on ses varying at school level without correlated intercept, the minority varying at school level with correlated intercept is still needed.
+  
+
+
+### b. Is the more complex model (with both random slopes in it) justified?
+  Reponse: Yes, the LR test suggests that we do need the two random slopes. (With level of significance as 0.05)
+
+
+### c. WRITE OUT THIS MODEL in your preferred notation
+   
+  The model is:  
+$$
+\begin{gathered}
+MATH1ST_{ijk}=b_0+\zeta_{0k}+\eta_{0jk}+\varepsilon_{ijk}+b_1HOUSEPOV_k+b_2YEARSTEA_{jk}+b_3MATHKNOW_{jk}\\ +b_4MATHPREP_{jk}+b_5SEX_{ijk}+(b_6+\zeta_{1k})MINORITY_{ijk}+(b_7+\zeta_{2k})SES_{ijk} \\
+  \text{with }\zeta_{0k}\sim N(0,\sigma^2_{\zeta_0}),
+              \zeta_{1k}\sim N(0,\sigma^2_{\zeta_1}),
+              \zeta_{2k}\sim N(0,\sigma^2_{\zeta_2}),
+              \eta_{0jk}\sim N(0,\sigma^2_{\eta_0}),
+              \varepsilon_{ijk}\sim N(0,\sigma^2_\varepsilon), \text{and }
+              \rho(\zeta_{0k}, \zeta_{1k}) \neq 0 \\ \text{ and all other terms are indepedent of each other.}
+\end{gathered}
+$$
+
+
+##  Question 9.
+
+### a. For UMM, write down: V_S, V_C, V_E for the three variance components (simply the estimates)
+
+```{r}
+# Print variances of fit1 (UMM)
+data.frame(VarCorr(fit1))
+```
+
+    V_S = 280.69
+    
+    V_C = 85.47
+    
+    V_E = 1146.79
+
+### b. For the most complicated (all fixed effects) random INTERCEPTS ONLY model, what are: V_C, V_S, V_E?
+
+```{r}
+# Print variances of fit4
+data.frame(VarCorr(fit4))
+```
+
+    V_S = 169.45
+    
+    V_C = 93.89
+    
+    V_E = 1064.96
+
+### c. By what fraction did these each decrease with the new predictors in the model?
+```{r}
+# Change in V_S
+(280.69-169.45)/280.69
+
+# Change in V_C
+(85.47-93.89)/85.47
+
+# Change in V_E
+(1146.79-1064.96)/1146.79
+```
+
+    V_S: 39.63%
+    
+    V_C: -9.85%
+    
+    V_E: 7.14%
+
+
+## Question 10. Now consider the model with a random slope in ses.
+
+### a. What are:  V_C, V_S(ses=0), V_E ?
+
+```{r}
+# Print variances of fit7.a3 (uncorrelated intercepts and slopes)
+data.frame(VarCorr(fit7.a3))
+```
+
+    V_S(ses=0) = 168.00
+    
+    V_C = 88.56
+    
+    V_E = 1035.11
+
+### b. What are: V_S(ses=-0.50), V_S(ses=+0.5) ?
+```{r}
+# V_S(ses=.5)
+168.00+.5^2*72.50
+# V_S(ses=-.5)
+168.00+(-.5)^2*72.50
+```
+
+    V_S(ses=0.5) = 186.125
+    
+    V_S(ses=-0.5) = 186.125
+
+
+## Question 11.
+### Now consider the model with a random slope in minority.
+
+### a. What are:  V_C, V_S(minority=0), V_E ?
+
+```{r}
+# Print variances of fit7.b2 random effects (correlated intercepts and slopes) 
+data.frame(VarCorr(fit7.b2))
+summary(fit7.b2)
+```
+
+    V_S(minority=0) = 381.20
+    
+    V_C = 86.70
+    
+    V_E = 1039.40
+
+### b. What are: V_S(minority=0.25), V_S(minority=+0.50), V_S(minority=+0.75) ?
+
+    V_S(minority=0.25) = 252.5519
+
+```{r}
+# V_S(minority = 0.25)
+# Correlated intercept and slope
+381.2+2*.25*-0.83*19.524*18.525+.25^2*343.2
+```
+
+    V_S(minority=0.5) = 166.8039
+
+```{r}
+# V_S(minority = 0.50)
+# Correlated intercept and slope
+381.2+2*.5*-0.83*19.524*18.525+.5^2*343.2
+```
+
+    V_S(minority=0.75) = 123.9558
+
+```{r}
+# V_S(minority = 0.75)
+# Correlated intercept and slope
+381.2+2*.75*-0.83*19.524*18.525+.75^2*343.2
+```
+
+## Question 12.
+### Now consider the model with a random slope in ses & minority.
+
+### a. What are: V_C, V_S(minority=0,ses=0), V_E ? We need to list ‘ses=0, minority=0’ here, or we don’t know how to use the slope variance
+
+```{r}
+# Print variances of fit8 random effects
+data.frame(VarCorr(fit8))
+```
+
+    V_S(sex=0, minority=0) = 404.52
+    
+    V_C = 80.62
+    
+    V_E = 1009.73
+
+### b. In the last model, what is a “likely” (+/- 1 sd) range for \(\eta\)~0jk~
+
+  Response: (-8.979,8.979)
+
+### c. Can we make a similar statement about \(\zeta\)~0k~?
+
+  Response: No,\(\zeta\)~0k~ is correlated with \(\zeta\)~2k~, so it is against the model assumption that $\zeta_0\sim N(0,\sigma^2_{\zeta_0})$ and $\zeta_2\sim N(0,\sigma^2_{\zeta_2})$ independent with one another. 
+
+### d. If you had a large value for \(\eta\)~0jk~, would you expect a large or small or “any” value for the two random slope terms, \(\zeta\)~1k~ and \(\zeta\)~2k~ for ses and minority?
+
+  Response: Any. Because random intercept and random slopes are only correlated at the same level. There's no correlation between \(\eta\)~0jk~ and \(\zeta\)~1k~ or \(\zeta\)~2k~. 
+
+### e. If you had a large value for \(\zeta\)~0k~, would you expect a large or small or “any” value for the two random slope terms, \(\zeta\)~1k~ and \(\zeta\)~2k~ for ses and minority (discuss each separately)?
+
+  Response: Smaller value for \(\zeta\)~1k~ because of negative correlation between \(\zeta\)~1k~ and \(\zeta\)~0k~; any value for  \(\zeta\)~2k~  because of the independence between \(\zeta\)~2k~ and \(\zeta\)~0k~
